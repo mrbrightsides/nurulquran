@@ -1,0 +1,149 @@
+
+import { GoogleGenAI, Type } from "@google/genai";
+import { IdentificationResult } from "../types";
+
+const ai = new GoogleGenAI({ apiKey: import.meta.env.VITE_GEMINI_API_KEY || '' });
+
+export const identifyContent = async (
+  input: string | { data: string; mimeType: string },
+  isText: boolean
+): Promise<IdentificationResult> => {
+  const model = 'gemini-3-pro-preview';
+  
+  const responseSchema = {
+    type: Type.OBJECT,
+    properties: {
+      type: {
+        type: Type.STRING,
+        description: 'Type: QURAN, HADITH, or UNKNOWN',
+      },
+      title: {
+        type: Type.STRING,
+        description: 'Name of Surah or Hadith collection',
+      },
+      reference: {
+        type: Type.STRING,
+        description: 'Reference (e.g. 2:255)',
+      },
+      arabicText: {
+        type: Type.STRING,
+        description: 'Original Arabic with diacritics',
+      },
+      translation: {
+        type: Type.STRING,
+        description: 'English translation',
+      },
+      translationID: {
+        type: Type.STRING,
+        description: 'Indonesian translation (Bahasa Indonesia)',
+      },
+      transliteration: {
+        type: Type.STRING,
+        description: 'Phonetic transliteration in English characters',
+      },
+      context: {
+        type: Type.STRING,
+        description: 'English insight or context',
+      },
+      contextID: {
+        type: Type.STRING,
+        description: 'Indonesian insight or context (Bahasa Indonesia)',
+      },
+      confidence: {
+        type: Type.NUMBER,
+        description: 'Confidence score (0-1)',
+      },
+      matchedArabicSegment: {
+        type: Type.STRING,
+        description: 'Specific matched Arabic phrase',
+      }
+    },
+    required: ['type', 'title', 'reference', 'arabicText', 'translation', 'translationID', 'transliteration', 'confidence'],
+  };
+
+  const systemInstruction = `You are an expert Islamic scholar. 
+    Task: Identify the source of the input.
+    MANDATORY BILINGUAL REQUIREMENT: 
+    - Provide 'translation' in English.
+    - Provide 'translationID' in Indonesian (Bahasa Indonesia).
+    - Provide 'context' in English.
+    - Provide 'contextID' in Indonesian (Bahasa Indonesia).
+    Ensure the translations are high-quality and standard for Al-Quran and Hadith in both languages.`;
+
+  const contents = isText 
+    ? { parts: [{ text: `Identify this: "${input as string}"` }] }
+    : {
+        parts: [
+          { inlineData: input as { data: string; mimeType: string } },
+          { text: "Analyze this media and identify the Islamic text mentioned. Provide translations in both English and Indonesian." }
+        ]
+      };
+
+  try {
+    const response = await ai.models.generateContent({
+      model,
+      contents,
+      config: {
+        systemInstruction,
+        responseMimeType: "application/json",
+        responseSchema,
+        temperature: 0.2,
+      },
+    });
+
+    const result = JSON.parse(response.text.trim()) as IdentificationResult;
+    return result;
+  } catch (error: any) {
+    console.error("Gemini API Error:", error);
+    throw new Error(error.message || "An unexpected error occurred.");
+  }
+};
+
+export const getDailyWisdom = async (date: string): Promise<IdentificationResult> => {
+  const model = 'gemini-3-pro-preview';
+  
+  const responseSchema = {
+    type: Type.OBJECT,
+    properties: {
+      type: { type: Type.STRING },
+      title: { type: Type.STRING },
+      reference: { type: Type.STRING },
+      arabicText: { type: Type.STRING },
+      translation: { type: Type.STRING },
+      translationID: { type: Type.STRING },
+      transliteration: { type: Type.STRING },
+      context: { type: Type.STRING },
+      contextID: { type: Type.STRING },
+      confidence: { type: Type.NUMBER },
+    },
+    required: ['type', 'title', 'reference', 'arabicText', 'translation', 'translationID', 'transliteration', 'confidence'],
+  };
+
+  const systemInstruction = `You are an expert Islamic scholar. 
+    Task: Provide a "Daily Wisdom" from the Al-Quran or Hadith for the date: ${date}.
+    MANDATORY BILINGUAL REQUIREMENT: 
+    - Provide 'translation' in English.
+    - Provide 'translationID' in Indonesian (Bahasa Indonesia).
+    - Provide 'context' in English.
+    - Provide 'contextID' in Indonesian (Bahasa Indonesia).
+    Ensure the translations are high-quality and standard. The content should be inspiring and relevant for a daily reflection.`;
+
+  try {
+    const response = await ai.models.generateContent({
+      model,
+      contents: "Generate today's wisdom.",
+      config: {
+        systemInstruction,
+        responseMimeType: "application/json",
+        responseSchema,
+        temperature: 0.7, // Slightly higher for variety
+      },
+    });
+
+    const result = JSON.parse(response.text.trim()) as IdentificationResult;
+    return result;
+  } catch (error: any) {
+    console.error("Gemini Daily Wisdom Error:", error);
+    throw new Error("Failed to fetch daily wisdom.");
+  }
+};

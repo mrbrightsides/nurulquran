@@ -1,0 +1,7 @@
+{
+  "name": "Nur Al-Quran Finder",
+  "description": "An intelligent companion for the holy month to identify Quranic Ayats and Hadiths from text, audio, or video clips using Gemini AI.",
+  "requestFramePermissions": [
+    "microphone"
+  ]
+}

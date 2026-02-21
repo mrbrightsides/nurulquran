@@ -1,0 +1,67 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-arabic: "Amiri", serif;
+}
+
+@layer base {
+  body {
+    @apply font-sans transition-colors duration-300;
+  }
+}
+
+.pattern-bg {
+  background-image: url("https://www.transparenttextures.com/patterns/islamic-art.png");
+  background-repeat: repeat;
+  background-attachment: fixed;
+}
+
+.pattern-overlay {
+  @apply min-h-screen bg-emerald-50/88 dark:bg-emerald-950/90;
+}
+
+@media print {
+  .no-print, 
+  button, 
+  header, 
+  footer, 
+  .pattern-bg,
+  select,
+  textarea,
+  input {
+    display: none !important;
+  }
+  body {
+    background: white !important;
+    color: #1a202c !important;
+    font-size: 12pt;
+  }
+  #root {
+    margin: 0;
+    padding: 0;
+  }
+  .max-w-3xl, .max-w-4xl {
+    max-width: 100% !important;
+    width: 100% !important;
+    box-shadow: none !important;
+    border: none !important;
+  }
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  @apply bg-transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  @apply bg-emerald-200 dark:bg-emerald-800 rounded-full;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  @apply bg-emerald-300 dark:bg-emerald-700;
+}
