@@ -39,6 +39,7 @@ const App: React.FC = () => {
   const [isFetchingDaily, setIsFetchingDaily] = useState(false);
   const [editCategory, setEditCategory] = useState('');
   const [editNote, setEditNote] = useState('');
+  const [activeTab, setActiveTab] = useState<'finder' | 'library'>('finder');
 
   const [state, setState] = useState<AppState>({ isAnalyzing: false, result: null, error: null });
 
@@ -211,6 +212,34 @@ const App: React.FC = () => {
         darkMode={darkMode} 
         setDarkMode={setDarkMode} 
       />
+
+      <div className="max-w-4xl mx-auto px-4 mb-12 no-print">
+        <div className="flex p-1.5 bg-white dark:bg-emerald-900/50 rounded-3xl border border-emerald-100 dark:border-emerald-800 shadow-sm">
+          <button 
+            onClick={() => setActiveTab('finder')}
+            className={`flex-1 flex items-center justify-center gap-2 py-4 rounded-2xl text-sm font-black uppercase tracking-widest transition-all ${activeTab === 'finder' ? 'bg-emerald-700 text-white shadow-lg' : 'text-emerald-400 hover:text-emerald-600'}`}
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
+            <span className="hidden sm:inline">{isEn ? 'Finder' : 'Pencari'}</span>
+          </button>
+          <button 
+            onClick={() => setActiveTab('library')}
+            className={`flex-1 flex items-center justify-center gap-2 py-4 rounded-2xl text-sm font-black uppercase tracking-widest transition-all ${activeTab === 'library' ? 'bg-emerald-700 text-white shadow-lg' : 'text-emerald-400 hover:text-emerald-600'}`}
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+            </svg>
+            <span className="hidden sm:inline">{isEn ? 'Library' : 'Perpustakaan'}</span>
+            {savedResults.length > 0 && (
+              <span className="px-2 py-0.5 bg-emerald-100 dark:bg-emerald-800 text-emerald-700 dark:text-emerald-300 rounded-full text-[10px]">
+                {savedResults.length}
+              </span>
+            )}
+          </button>
+        </div>
+      </div>
 
       <main className="max-w-4xl mx-auto px-4 relative">
         {showFeedback && (
@@ -413,7 +442,7 @@ const App: React.FC = () => {
           </div>
         )}
 
-        {!state.result && (
+        {activeTab === 'finder' && !state.result && (
           <div className="space-y-12">
             <div className="bg-white p-8 rounded-3xl shadow-xl border border-emerald-100 space-y-8 no-print">
               <div>
@@ -519,7 +548,7 @@ const App: React.FC = () => {
           </div>
         )}
 
-        {state.result && (
+        {activeTab === 'finder' && state.result && (
           <div className="space-y-6">
             <div className="flex flex-wrap items-center justify-between gap-4 no-print bg-white/10 dark:bg-black/20 p-4 rounded-2xl backdrop-blur-sm border border-emerald-100/20">
               <button onClick={reset} className="flex items-center gap-2 text-emerald-700 dark:text-emerald-400 font-bold">
@@ -592,8 +621,8 @@ const App: React.FC = () => {
           </div>
         )}
 
-        {savedResults.length > 0 && !state.result && (
-          <div className="mt-20 no-print">
+        {activeTab === 'library' && savedResults.length > 0 && (
+          <div className="no-print">
             <div className="flex flex-col space-y-6 mb-10">
               <div className="flex flex-wrap items-center justify-between gap-4">
                 <h3 className="text-2xl font-bold text-emerald-950 dark:text-emerald-50 flex items-center gap-3">
@@ -681,7 +710,13 @@ const App: React.FC = () => {
                         <button onClick={() => setDeleteConfirmIndex(actualIdx)} className="text-red-500 font-bold text-xs hover:underline">{isEn ? 'Delete' : 'Hapus'}</button>
                       </div>
 
-                      <div className="cursor-pointer" onClick={() => !isEditing && setState({ ...state, result: saved })}>
+                      <div className="cursor-pointer" onClick={() => {
+                        if (!isEditing) {
+                          setState({ ...state, result: saved });
+                          setActiveTab('finder');
+                          window.scrollTo({ top: 0, behavior: 'smooth' });
+                        }
+                      }}>
                         <div className="flex justify-between items-start mb-1">
                           <span className="text-[10px] font-black text-emerald-500 uppercase tracking-widest">{saved.type}</span>
                           <span className="text-[9px] opacity-40 font-bold">{new Date(saved.timestamp).toLocaleDateString()}</span>
@@ -728,6 +763,30 @@ const App: React.FC = () => {
                   );
                 })}
             </div>
+          </div>
+        )}
+
+        {activeTab === 'library' && savedResults.length === 0 && (
+          <div className="text-center space-y-6 no-print animate-in fade-in slide-in-from-bottom-4 duration-700">
+            <div className="w-24 h-24 bg-emerald-100 dark:bg-emerald-900/50 rounded-full flex items-center justify-center mx-auto text-4xl">
+              ✨
+            </div>
+            <div className="space-y-2">
+              <h3 className="text-2xl font-bold text-emerald-900 dark:text-emerald-50">
+                {isEn ? "Your Library is Empty" : "Perpustakaan Anda Kosong"}
+              </h3>
+              <p className="text-emerald-600 dark:text-emerald-400 max-w-sm mx-auto font-medium">
+                {isEn 
+                  ? "Start your journey by identifying your first verse or Hadith. Your findings will appear here." 
+                  : "Mulailah perjalanan Anda dengan mengidentifikasi ayat atau Hadits pertama Anda. Temuan Anda akan muncul di sini."}
+              </p>
+            </div>
+            <button 
+              onClick={() => setActiveTab('finder')}
+              className="px-8 py-4 bg-emerald-700 text-white rounded-2xl font-black hover:bg-emerald-800 transition-all shadow-lg shadow-emerald-900/20 active:scale-95"
+            >
+              {isEn ? "Explore Now" : "Jelajahi Sekarang"}
+            </button>
           </div>
         )}
       </main>
