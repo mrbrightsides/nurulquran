@@ -14,8 +14,8 @@ const Header: React.FC<HeaderProps> = ({ startTour, onShowAbout, lang, setLang, 
   const isEn = lang === 'en';
   
   return (
-    <header className="text-center py-16 px-4 relative max-w-4xl mx-auto">
-      <div className="absolute top-8 right-4 flex items-center gap-3 no-print">
+    <header className="text-center pt-8 pb-16 px-4 relative max-w-4xl mx-auto">
+      <div className="flex flex-wrap items-center justify-center md:justify-end gap-3 mb-12 no-print">
         <button 
           onClick={onShowAbout}
           className="p-3 rounded-2xl bg-white dark:bg-emerald-900 border border-emerald-100 dark:border-emerald-800 text-emerald-600 dark:text-emerald-400 shadow-sm hover:shadow-md hover:bg-emerald-50 dark:hover:bg-emerald-800 transition-all"

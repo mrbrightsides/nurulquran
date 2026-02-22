@@ -6,7 +6,7 @@ import { AppState, IdentificationResult } from './types';
 import { identifyContent, getDailyWisdom } from './services/geminiService';
 
 const App: React.FC = () => {
-  const [lang, setLang] = useState<'en' | 'id'>('en');
+  const [lang, setLang] = useState<'en' | 'id'>('id');
   const [textInput, setTextInput] = useState('');
   const [file, setFile] = useState<File | null>(null);
   const [isDragging, setIsDragging] = useState(false);
@@ -312,7 +312,60 @@ const App: React.FC = () => {
 
         {!state.result && (
           <div className="space-y-12">
-            {/* Daily Wisdom Section */}
+            <div className="bg-white p-8 rounded-3xl shadow-xl border border-emerald-100 space-y-8 no-print">
+              <div>
+                <label className="block text-emerald-900 font-bold text-lg mb-3">{isEn ? 'Verse or Phrase' : 'Ayat atau Frasa'}</label>
+                <textarea
+                  value={textInput}
+                  onChange={(e) => { setTextInput(e.target.value); setFile(null); }}
+                  className="w-full h-32 p-5 rounded-2xl border-2 border-emerald-50 focus:border-emerald-500 outline-none bg-emerald-50/20 text-emerald-900 placeholder-emerald-200"
+                  placeholder={isEn ? "Type here (e.g., 'Inna a'taina')..." : "Ketik di sini (misal: 'Inna a'taina')..."}
+                />
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div 
+                  className={`border-2 border-dashed rounded-3xl p-8 text-center flex flex-col items-center justify-center min-h-[180px] ${file ? 'border-emerald-500 bg-emerald-50' : 'border-emerald-100 bg-emerald-50/10'}`}
+                  onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
+                  onDragLeave={() => setIsDragging(false)}
+                  onDrop={(e) => {
+                    e.preventDefault(); setIsDragging(false);
+                    if (e.dataTransfer.files?.[0]) { setFile(e.dataTransfer.files[0]); setTextInput(''); }
+                  }}
+                >
+                  <input type="file" onChange={(e) => { if (e.target.files?.[0]) { setFile(e.target.files[0]); setTextInput(''); } }} className="hidden" id="f-up" accept="audio/*,video/*" />
+                  <label htmlFor="f-up" className="cursor-pointer flex flex-col items-center">
+                    <p className="text-emerald-900 font-bold text-sm">{file ? file.name : (isEn ? 'Upload Media' : 'Unggah Media')}</p>
+                  </label>
+                </div>
+
+                <div className={`border-2 border-dashed rounded-3xl p-8 text-center flex flex-col items-center justify-center min-h-[180px] ${isRecording ? 'border-orange-400 bg-orange-50' : 'border-emerald-100 bg-emerald-50/10'}`}>
+                  <button onClick={async () => {
+                    if (isRecording) { mediaRecorderRef.current?.stop(); setIsRecording(false); }
+                    else {
+                      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                      const mr = new MediaRecorder(stream);
+                      mediaRecorderRef.current = mr; audioChunksRef.current = [];
+                      mr.ondataavailable = (e) => audioChunksRef.current.push(e.data);
+                      mr.onstop = () => { setFile(new File([new Blob(audioChunksRef.current, { type: 'audio/webm' })], `rec.webm`, { type: 'audio/webm' })); setTextInput(''); };
+                      mr.start(); setIsRecording(true);
+                    }
+                  }} className="flex flex-col items-center">
+                    <p className="text-emerald-900 font-bold text-sm">{isRecording ? (isEn ? 'Stop' : 'Berhenti') : (isEn ? 'Record Voice' : 'Rekam Suara')}</p>
+                  </button>
+                </div>
+              </div>
+
+              <button
+                onClick={handleIdentify}
+                disabled={state.isAnalyzing || (!textInput.trim() && !file)}
+                className="w-full py-5 rounded-2xl text-xl font-bold bg-emerald-700 text-white shadow-lg disabled:bg-emerald-100"
+              >
+                {state.isAnalyzing ? (isEn ? 'Consulting...' : 'Mencari...') : (isEn ? "Seek Source" : "Cari Sumber")}
+              </button>
+            </div>
+
+            {/* Daily Wisdom Section - Moved below the finder */}
             {(dailyWisdom || isFetchingDaily) && (
               <div className="bg-white dark:bg-emerald-900/40 p-8 rounded-[2.5rem] border border-emerald-100 dark:border-emerald-800 shadow-sm relative overflow-hidden group">
                 <div className="absolute top-0 left-0 w-1 h-full bg-emerald-500"></div>
@@ -360,61 +413,8 @@ const App: React.FC = () => {
                 )}
               </div>
             )}
-
-            <div className="bg-white p-8 rounded-3xl shadow-xl border border-emerald-100 space-y-8 no-print">
-            <div>
-              <label className="block text-emerald-900 font-bold text-lg mb-3">{isEn ? 'Verse or Phrase' : 'Ayat atau Frasa'}</label>
-              <textarea
-                value={textInput}
-                onChange={(e) => { setTextInput(e.target.value); setFile(null); }}
-                className="w-full h-32 p-5 rounded-2xl border-2 border-emerald-50 focus:border-emerald-500 outline-none bg-emerald-50/20 text-emerald-900 placeholder-emerald-200"
-                placeholder={isEn ? "Type here (e.g., 'Inna a'taina')..." : "Ketik di sini (misal: 'Inna a'taina')..."}
-              />
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div 
-                className={`border-2 border-dashed rounded-3xl p-8 text-center flex flex-col items-center justify-center min-h-[180px] ${file ? 'border-emerald-500 bg-emerald-50' : 'border-emerald-100 bg-emerald-50/10'}`}
-                onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
-                onDragLeave={() => setIsDragging(false)}
-                onDrop={(e) => {
-                  e.preventDefault(); setIsDragging(false);
-                  if (e.dataTransfer.files?.[0]) { setFile(e.dataTransfer.files[0]); setTextInput(''); }
-                }}
-              >
-                <input type="file" onChange={(e) => { if (e.target.files?.[0]) { setFile(e.target.files[0]); setTextInput(''); } }} className="hidden" id="f-up" accept="audio/*,video/*" />
-                <label htmlFor="f-up" className="cursor-pointer flex flex-col items-center">
-                  <p className="text-emerald-900 font-bold text-sm">{file ? file.name : (isEn ? 'Upload Media' : 'Unggah Media')}</p>
-                </label>
-              </div>
-
-              <div className={`border-2 border-dashed rounded-3xl p-8 text-center flex flex-col items-center justify-center min-h-[180px] ${isRecording ? 'border-orange-400 bg-orange-50' : 'border-emerald-100 bg-emerald-50/10'}`}>
-                <button onClick={async () => {
-                  if (isRecording) { mediaRecorderRef.current?.stop(); setIsRecording(false); }
-                  else {
-                    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-                    const mr = new MediaRecorder(stream);
-                    mediaRecorderRef.current = mr; audioChunksRef.current = [];
-                    mr.ondataavailable = (e) => audioChunksRef.current.push(e.data);
-                    mr.onstop = () => { setFile(new File([new Blob(audioChunksRef.current, { type: 'audio/webm' })], `rec.webm`, { type: 'audio/webm' })); setTextInput(''); };
-                    mr.start(); setIsRecording(true);
-                  }
-                }} className="flex flex-col items-center">
-                  <p className="text-emerald-900 font-bold text-sm">{isRecording ? (isEn ? 'Stop' : 'Berhenti') : (isEn ? 'Record Voice' : 'Rekam Suara')}</p>
-                </button>
-              </div>
-            </div>
-
-            <button
-              onClick={handleIdentify}
-              disabled={state.isAnalyzing || (!textInput.trim() && !file)}
-              className="w-full py-5 rounded-2xl text-xl font-bold bg-emerald-700 text-white shadow-lg disabled:bg-emerald-100"
-            >
-              {state.isAnalyzing ? (isEn ? 'Consulting...' : 'Mencari...') : (isEn ? "Seek Source" : "Cari Sumber")}
-            </button>
           </div>
-        </div>
-      )}
+        )}
 
         {state.result && (
           <div className="space-y-6">
