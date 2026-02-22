@@ -26,6 +26,11 @@ const App: React.FC = () => {
 
   const [tourStep, setTourStep] = useState<number | null>(null);
   const [showAbout, setShowAbout] = useState(false);
+  const [showFeedback, setShowFeedback] = useState(false);
+  const [feedbackType, setFeedbackType] = useState<'bug' | 'suggestion' | 'other'>('suggestion');
+  const [feedbackMessage, setFeedbackMessage] = useState('');
+  const [isSubmittingFeedback, setIsSubmittingFeedback] = useState(false);
+  const [feedbackSubmitted, setFeedbackSubmitted] = useState(false);
   
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
   const [deleteConfirmIndex, setDeleteConfirmIndex] = useState<number | null>(null);
@@ -119,7 +124,24 @@ const App: React.FC = () => {
 
   const reset = () => {
     setTextInput(''); setFile(null); setIsRecording(false); setRecordingDuration(0);
-    setState({ isAnalyzing: false, result: null, error: null });
+    setShowFeedback(false);
+    setFeedbackSubmitted(false);
+    setFeedbackMessage('');
+  };
+
+  const handleFeedbackSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!feedbackMessage.trim()) return;
+    
+    const subject = encodeURIComponent(`Nur Al-Quran Finder Feedback: ${feedbackType.toUpperCase()}`);
+    const body = encodeURIComponent(feedbackMessage);
+    const mailtoUrl = `mailto:khudri@binadarma.ac.id?subject=${subject}&body=${body}`;
+    
+    // Open the user's email client
+    window.location.href = mailtoUrl;
+    
+    // We show the success state immediately as the mailto action is triggered
+    setFeedbackSubmitted(true);
   };
 
   const toggleExpand = (index: number) => {
@@ -191,6 +213,87 @@ const App: React.FC = () => {
       />
 
       <main className="max-w-4xl mx-auto px-4 relative">
+        {showFeedback && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+            <div className="bg-white dark:bg-emerald-900 p-8 rounded-[2.5rem] shadow-2xl max-w-lg w-full border-2 border-emerald-100 dark:border-emerald-800 animate-in zoom-in duration-200">
+              <div className="flex justify-between items-center mb-6">
+                <h3 className="text-2xl font-black text-emerald-900 dark:text-white">
+                  {isEn ? "Send Feedback" : "Kirim Masukan"}
+                </h3>
+                <button onClick={() => setShowFeedback(false)} className="p-2 rounded-xl bg-emerald-50 dark:bg-emerald-800 text-emerald-400 hover:text-emerald-600 transition-colors">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+
+              {feedbackSubmitted ? (
+                <div className="text-center py-10 space-y-4">
+                  <div className="w-20 h-20 bg-emerald-100 dark:bg-emerald-800 rounded-full flex items-center justify-center mx-auto text-emerald-600 dark:text-emerald-400">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                    </svg>
+                  </div>
+                  <h4 className="text-xl font-bold text-emerald-900 dark:text-white">
+                    {isEn ? "Thank You!" : "Terima Kasih!"}
+                  </h4>
+                  <p className="text-emerald-600 dark:text-emerald-400 font-medium">
+                    {isEn ? "Your feedback helps us improve Nur Al-Quran Finder." : "Masukan Anda membantu kami meningkatkan Nur Al-Quran Finder."}
+                  </p>
+                  <button 
+                    onClick={() => setShowFeedback(false)}
+                    className="mt-6 px-8 py-3 bg-emerald-700 text-white rounded-2xl font-bold hover:bg-emerald-800 transition-all"
+                  >
+                    {isEn ? "Close" : "Tutup"}
+                  </button>
+                </div>
+              ) : (
+                <form onSubmit={handleFeedbackSubmit} className="space-y-6">
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black uppercase tracking-widest text-emerald-500">{isEn ? "Type" : "Jenis"}</label>
+                    <div className="grid grid-cols-3 gap-2">
+                      {(['suggestion', 'bug', 'other'] as const).map((t) => (
+                        <button
+                          key={t}
+                          type="button"
+                          onClick={() => setFeedbackType(t)}
+                          className={`py-2 rounded-xl text-[10px] font-black uppercase tracking-widest border-2 transition-all ${feedbackType === t ? 'bg-emerald-700 border-emerald-700 text-white shadow-md' : 'border-emerald-50 dark:border-emerald-800 text-emerald-400 hover:border-emerald-200'}`}
+                        >
+                          {t === 'bug' ? (isEn ? 'Bug' : 'Error') : t === 'suggestion' ? (isEn ? 'Idea' : 'Ide') : (isEn ? 'Other' : 'Lainnya')}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black uppercase tracking-widest text-emerald-500">{isEn ? "Message" : "Pesan"}</label>
+                    <textarea
+                      required
+                      value={feedbackMessage}
+                      onChange={(e) => setFeedbackMessage(e.target.value)}
+                      placeholder={isEn ? "Tell us what's on your mind..." : "Ceritakan apa yang ada di pikiran Anda..."}
+                      className="w-full h-40 p-4 rounded-2xl border-2 border-emerald-50 dark:border-emerald-800 bg-emerald-50/10 dark:bg-black/20 text-emerald-900 dark:text-white outline-none focus:border-emerald-500 transition-all resize-none"
+                    />
+                    <p className="text-[10px] text-emerald-400 font-medium italic">
+                      {isEn 
+                        ? "* This will open your default email app to send the message to developer" 
+                        : "* Ini akan membuka aplikasi email default Anda untuk mengirim pesan ke pengembang"}
+                    </p>
+                  </div>
+
+                  <button
+                    type="submit"
+                    disabled={isSubmittingFeedback || !feedbackMessage.trim()}
+                    className="w-full py-4 bg-emerald-700 text-white rounded-2xl font-black hover:bg-emerald-800 transition-all shadow-lg disabled:opacity-50"
+                  >
+                    {isSubmittingFeedback ? (isEn ? "Sending..." : "Mengirim...") : (isEn ? "Submit Feedback" : "Kirim Masukan")}
+                  </button>
+                </form>
+              )}
+            </div>
+          </div>
+        )}
+
         {showAbout && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
             <div className="bg-white dark:bg-emerald-900 p-8 rounded-[2.5rem] shadow-2xl max-w-2xl w-full border-2 border-emerald-100 dark:border-emerald-800 animate-in zoom-in duration-200 overflow-y-auto max-h-[90vh]">
@@ -631,34 +734,41 @@ const App: React.FC = () => {
 
       <footer className="mt-32 text-center text-emerald-600 text-sm pb-10 flex flex-col items-center gap-6 no-print">
         <div className="h-[2px] w-12 bg-emerald-100 dark:bg-emerald-800"></div>
-        <div className="flex items-center gap-4">
-          <p className="font-bold">© {new Date().getFullYear()} Nur Al-Quran Finder.</p>
-          <div className="flex items-center gap-2">
-            <a 
-              href="https://smartfaith.streamlit.app/" 
-              target="_blank" 
-              rel="noopener noreferrer"
-              className="p-2 rounded-full bg-emerald-100 dark:bg-emerald-900 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-200 dark:hover:bg-emerald-800 transition-all"
-              title={isEn ? "Visit SmartFaith (Mother App)" : "Kunjungi SmartFaith (Aplikasi Induk)"}
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <circle cx="12" cy="12" r="10"></circle>
-                <line x1="2" y1="12" x2="22" y2="12"></line>
-                <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path>
-              </svg>
-            </a>
-            <a 
-              href="https://github.com/mrbrightsides" 
-              target="_blank" 
-              rel="noopener noreferrer"
-              className="p-2 rounded-full bg-emerald-100 dark:bg-emerald-900 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-200 dark:hover:bg-emerald-800 transition-all"
-              title={isEn ? "Visit Developer Profile" : "Kunjungi Profil Pengembang"}
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"></path>
-              </svg>
-            </a>
-          </div>
+        <p className="font-bold">© {new Date().getFullYear()} Nur Al-Quran Finder</p>
+        <div className="flex items-center gap-2">
+          <button 
+            onClick={() => setShowFeedback(true)}
+            className="p-2 rounded-full bg-emerald-100 dark:bg-emerald-900 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-200 dark:hover:bg-emerald-800 transition-all"
+            title={isEn ? "Send Feedback" : "Kirim Masukan"}
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+            </svg>
+          </button>
+          <a 
+            href="https://smartfaith.streamlit.app/" 
+            target="_blank" 
+            rel="noopener noreferrer"
+            className="p-2 rounded-full bg-emerald-100 dark:bg-emerald-900 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-200 dark:hover:bg-emerald-800 transition-all"
+            title={isEn ? "Visit SmartFaith (Mother App)" : "Kunjungi SmartFaith (Aplikasi Induk)"}
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="12" cy="12" r="10"></circle>
+              <line x1="2" y1="12" x2="22" y2="12"></line>
+              <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path>
+            </svg>
+          </a>
+          <a 
+            href="https://github.com/mrbrightsides" 
+            target="_blank" 
+            rel="noopener noreferrer"
+            className="p-2 rounded-full bg-emerald-100 dark:bg-emerald-900 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-200 dark:hover:bg-emerald-800 transition-all"
+            title={isEn ? "Visit Developer Profile" : "Kunjungi Profil Pengembang"}
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"></path>
+            </svg>
+          </a>
         </div>
       </footer>
     </div>
