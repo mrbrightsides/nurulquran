@@ -98,7 +98,7 @@ const App: React.FC = () => {
   const startTour = () => setTourStep(0);
 
   const nextTourStep = () => {
-    if (tourStep !== null && tourStep < 3) setTourStep(tourStep + 1);
+    if (tourStep !== null && tourStep < 4) setTourStep(tourStep + 1);
     else { setTourStep(null); }
   };
 
@@ -393,6 +393,28 @@ const App: React.FC = () => {
                   </p>
                 </section>
 
+                <section>
+                  <h4 className="text-sm font-black uppercase tracking-widest text-emerald-500 mb-3">{isEn ? "Key Features" : "Fitur Utama"}</h4>
+                  <ul className="space-y-3 text-sm font-bold">
+                    <li className="flex items-start gap-3">
+                      <div className="w-1.5 h-1.5 rounded-full bg-emerald-400 mt-1.5 shrink-0"></div>
+                      <span>{isEn ? "AI-Powered Identification for Text & Audio" : "Identifikasi Berbasis AI untuk Teks & Audio"}</span>
+                    </li>
+                    <li className="flex items-start gap-3">
+                      <div className="w-1.5 h-1.5 rounded-full bg-emerald-400 mt-1.5 shrink-0"></div>
+                      <span>{isEn ? "Share Card Generator (9:16) for Social Media" : "Pembuat Kartu Berbagi (9:16) untuk Media Sosial"}</span>
+                    </li>
+                    <li className="flex items-start gap-3">
+                      <div className="w-1.5 h-1.5 rounded-full bg-emerald-400 mt-1.5 shrink-0"></div>
+                      <span>{isEn ? "Personal Library with Reflections & Categories" : "Perpustakaan Pribadi dengan Refleksi & Kategori"}</span>
+                    </li>
+                    <li className="flex items-start gap-3">
+                      <div className="w-1.5 h-1.5 rounded-full bg-emerald-400 mt-1.5 shrink-0"></div>
+                      <span>{isEn ? "Daily Wisdom & Multi-language Support" : "Hikmah Harian & Dukungan Multi-bahasa"}</span>
+                    </li>
+                  </ul>
+                </section>
+
                 <section className="p-6 bg-emerald-50 dark:bg-emerald-950/40 rounded-3xl border border-emerald-100 dark:border-emerald-800">
                   <h4 className="text-sm font-black uppercase tracking-widest text-emerald-500 mb-3">{isEn ? "Credits & Sources" : "Kredit & Sumber"}</h4>
                   <ul className="space-y-2 text-sm font-bold">
@@ -436,7 +458,7 @@ const App: React.FC = () => {
               className="bg-white p-8 rounded-3xl shadow-2xl max-w-sm w-full border-2 border-emerald-500"
             >
               <div className="flex justify-between items-center mb-4">
-                <span className="text-xs font-bold text-emerald-500 uppercase tracking-widest">{isEn ? 'Step' : 'Tahap'} {tourStep + 1} / 4</span>
+                <span className="text-xs font-bold text-emerald-500 uppercase tracking-widest">{isEn ? 'Step' : 'Tahap'} {tourStep + 1} / 5</span>
                 <button onClick={() => setTourStep(null)} className="text-emerald-300 hover:text-emerald-600">
                   <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
                     <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
@@ -447,16 +469,18 @@ const App: React.FC = () => {
                 {tourStep === 0 && (isEn ? "Welcome to Nur Finder" : "Selamat Datang di Nur Finder")}
                 {tourStep === 1 && (isEn ? "Smart Text Input" : "Input Teks Pintar")}
                 {tourStep === 2 && (isEn ? "Media Analysis" : "Analisis Media")}
-                {tourStep === 3 && (isEn ? "Organize Wisdom" : "Kelola Hikmah")}
+                {tourStep === 3 && (isEn ? "Share Card Generator" : "Pembuat Kartu Berbagi")}
+                {tourStep === 4 && (isEn ? "Organize Wisdom" : "Kelola Hikmah")}
               </h3>
               <p className="text-emerald-700 mb-6 text-sm font-medium">
                 {tourStep === 0 && (isEn ? "Discover the origin of Quranic verses or Hadiths using AI." : "Temukan asal-usul ayat Al-Quran atau Hadits menggunakan AI.")}
                 {tourStep === 1 && (isEn ? "Type any verse snippet, keyword, or transliteration." : "Ketik potongan ayat, kata kunci, atau transliterasi.")}
                 {tourStep === 2 && (isEn ? "Upload audio recordings or video clips to identify recitation." : "Unggah rekaman audio atau klip video untuk identifikasi tilawah.")}
-                {tourStep === 3 && (isEn ? "Save your findings and add personal reflections." : "Simpan temuan Anda dan tambahkan refleksi pribadi.")}
+                {tourStep === 3 && (isEn ? "Generate beautiful, shareable cards for social media (9:16 ratio)." : "Buat kartu berbagi yang indah untuk media sosial (rasio 9:16).")}
+                {tourStep === 4 && (isEn ? "Save your findings and add personal reflections." : "Simpan temuan Anda dan tambahkan refleksi pribadi.")}
               </p>
               <button onClick={nextTourStep} className="w-full py-4 bg-emerald-700 text-white rounded-2xl font-bold hover:bg-emerald-800 transition-colors">
-                {tourStep === 3 ? (isEn ? "Finish" : "Selesai") : (isEn ? "Next" : "Lanjut")}
+                {tourStep === 4 ? (isEn ? "Finish" : "Selesai") : (isEn ? "Next" : "Lanjut")}
               </button>
             </motion.div>
           </motion.div>

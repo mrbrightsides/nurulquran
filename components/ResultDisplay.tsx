@@ -1,8 +1,10 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Share2, Copy, Check, Printer, Play, Pause, Bookmark, X, Link, MessageSquare, BookOpen } from 'lucide-react';
+import { Share2, Copy, Check, Printer, Play, Pause, Bookmark, X, Link, MessageSquare, BookOpen, Image as ImageIcon, Download } from 'lucide-react';
+import html2canvas from 'html2canvas';
 import { IdentificationResult, SourceType, RelatedContent } from '../types';
 import { getRelatedContent } from '../services/geminiService';
+import ShareCard from './ShareCard';
 
 interface ResultDisplayProps {
   result: IdentificationResult;
@@ -31,6 +33,7 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({
   const [isCopied, setIsCopied] = useState(false);
   const [isTranslationCopied, setIsTranslationCopied] = useState(false);
   const [isShareCopied, setIsShareCopied] = useState(false);
+  const [isGeneratingImage, setIsGeneratingImage] = useState(false);
   const [userNote, setUserNote] = useState(result.userNote || '');
   const [userCategory, setUserCategory] = useState(result.userCategory || '');
   const [isEditingSaveInfo, setIsEditingSaveInfo] = useState(false);
@@ -41,6 +44,7 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({
   const arabicRef = useRef<HTMLDivElement>(null);
   const scrollIntervalRef = useRef<number | null>(null);
   const audioRef = useRef<HTMLAudioElement>(null);
+  const shareCardRef = useRef<HTMLDivElement>(null);
 
   const isEn = lang === 'en';
   const isQuran = result.type === SourceType.QURAN;
@@ -140,6 +144,33 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({
         audioRef.current.play();
       }
       setIsPlaying(!isPlaying);
+    }
+  };
+
+  const handleDownloadImage = async () => {
+    if (!shareCardRef.current) return;
+    
+    setIsGeneratingImage(true);
+    try {
+      // Wait a bit for any fonts/images to be ready
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
+      const canvas = await html2canvas(shareCardRef.current, {
+        scale: 2, // Higher resolution
+        useCORS: true,
+        allowTaint: true,
+        backgroundColor: '#022c22', // emerald-950 hex
+      });
+      
+      const image = canvas.toDataURL('image/png', 1.0);
+      const link = document.createElement('a');
+      link.download = `NurFinder-${result.title.replace(/\s+/g, '-')}.png`;
+      link.href = image;
+      link.click();
+    } catch (err) {
+      console.error("Image generation failed", err);
+    } finally {
+      setIsGeneratingImage(false);
     }
   };
 
@@ -346,9 +377,21 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({
               <Printer className="h-4 w-4" />
               {isEn ? 'Print' : 'Cetak'}
             </button>
+            <button 
+              onClick={handleDownloadImage} 
+              disabled={isGeneratingImage}
+              className={`flex items-center gap-3 px-6 py-3 rounded-xl font-black text-[10px] uppercase tracking-widest transition-all ${isGeneratingImage ? 'bg-emerald-100 text-emerald-300' : 'bg-emerald-50 dark:bg-emerald-800 text-emerald-600 dark:text-emerald-400 border border-emerald-100 dark:border-emerald-700 hover:bg-emerald-100 dark:hover:bg-emerald-700'}`}
+              title={isEn ? "Generate Share Card (9:16)" : "Buat Kartu Berbagi (9:16)"}
+            >
+              {isGeneratingImage ? <div className="w-4 h-4 border-2 border-emerald-400 border-t-transparent rounded-full animate-spin"></div> : <ImageIcon className="h-4 w-4" />}
+              {isGeneratingImage ? (isEn ? 'Generating...' : 'Memproses...') : (isEn ? 'Share Card' : 'Kartu Gambar')}
+            </button>
           </div>
         </div>
       </div>
+
+      {/* Hidden Share Card for Generation */}
+      <ShareCard result={result} isEn={isEn} cardRef={shareCardRef} />
     </div>
   );
 };

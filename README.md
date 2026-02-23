@@ -11,6 +11,12 @@ Nur Al-Quran Finder is a sophisticated digital companion designed to help believ
 - **Media Analysis**: Upload audio recordings or video clips of recitations to identify the source.
 - **Voice Recording**: Record yourself or a recitation directly within the app for instant identification.
 
+### 🖼️ Share Card Generator
+- **Social Media Ready**: Generate high-quality 9:16 aspect ratio images optimized for TikTok, Instagram Reels, and WhatsApp Status.
+- **Automatic Decoration**: Includes seasonal "Ramadan Kareem" ornaments and elegant Islamic geometric patterns.
+- **High-Quality Typography**: Features the elegant *Amiri* font for Arabic calligraphy and clean *Inter* font for translations.
+- **One-Click Download**: Instantly save your findings as beautiful PNG images.
+
 ### ☀️ Daily Wisdom
 - Receive a curated "Daily Wisdom" from the Al-Quran or Hadith every day.
 - Bilingual insights in both English and Indonesian.
@@ -37,7 +43,8 @@ Nur Al-Quran Finder is a sophisticated digital companion designed to help believ
 - **Styling**: Tailwind CSS (Modern, responsive, and "crafted" design)
 - **AI Engine**: Google Gemini 3.1 Pro (via `@google/genai`)
 - **Icons**: Lucide React
-- **Animations**: Framer Motion / CSS Transitions
+- **Animations**: Motion (formerly Framer Motion)
+- **Image Generation**: html2canvas
 - **State Management**: React Hooks (useState, useEffect, useRef)
 - **Storage**: LocalStorage for persistent library and settings
 
@@ -65,7 +72,7 @@ Nur Al-Quran Finder leverages the reasoning capabilities of **Gemini AI** to ana
 - **Quranic Text**: Sourced via the [Tanzil Project](http://tanzil.net).
 - **Hadith Database**: Inspired by and verified against [Sunnah.com](https://sunnah.com).
 - **AI Technology**: Powered by [Google Gemini AI](https://ai.google.dev).
-- **Developer**: [mrbrightsides](https://github.com/mrbrightsides)
+- **Developer**: [Telegram](https://t.me/khudriakhmad)
 
 ---
 
