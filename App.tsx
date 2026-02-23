@@ -1,6 +1,6 @@
 
 import React, { useState, useRef, useEffect } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence } from 'motion/react';
 import { Search, Library, ArrowLeft, RotateCcw, Info, Moon, Sun, Globe, HelpCircle, MessageSquare, ExternalLink, Github } from 'lucide-react';
 import Header from './components/Header';
 import ResultDisplay from './components/ResultDisplay';
