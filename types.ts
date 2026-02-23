@@ -14,6 +14,17 @@ export interface AlternativeResult {
   transliteration: string;
 }
 
+export interface RelatedContent {
+  title: string;
+  reference: string;
+  arabicText: string;
+  translation: string;
+  translationID: string;
+  transliteration: string;
+  asbabunNuzul?: string;
+  asbabunNuzulID?: string;
+}
+
 export interface IdentificationResult {
   type: SourceType;
   title: string; // Surah Name or Hadith Book
@@ -24,6 +35,8 @@ export interface IdentificationResult {
   transliteration: string; 
   context?: string; // English context
   contextID?: string; // Indonesian context
+  asbabunNuzul?: string; // English Asbabun Nuzul
+  asbabunNuzulID?: string; // Indonesian Asbabun Nuzul
   confidence: number;
   timestamp: number;
   matchedArabicSegment?: string; 

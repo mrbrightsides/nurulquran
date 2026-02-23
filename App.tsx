@@ -1,8 +1,10 @@
 
 import React, { useState, useRef, useEffect } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Search, Library, ArrowLeft, RotateCcw, Info, Moon, Sun, Globe, HelpCircle, MessageSquare, ExternalLink, Github } from 'lucide-react';
 import Header from './components/Header';
 import ResultDisplay from './components/ResultDisplay';
-import { AppState, IdentificationResult } from './types';
+import { AppState, IdentificationResult, SourceType } from './types';
 import { identifyContent, getDailyWisdom } from './services/geminiService';
 
 const App: React.FC = () => {
@@ -40,6 +42,11 @@ const App: React.FC = () => {
   const [editCategory, setEditCategory] = useState('');
   const [editNote, setEditNote] = useState('');
   const [activeTab, setActiveTab] = useState<'finder' | 'library'>('finder');
+  
+  const [audioSampleRate, setAudioSampleRate] = useState<number>(44100);
+  const [audioBitRate, setAudioBitRate] = useState<number>(128000);
+  const [showAudioSettings, setShowAudioSettings] = useState(false);
+  const [audioUrl, setAudioUrl] = useState<string | null>(null);
 
   const [state, setState] = useState<AppState>({ isAnalyzing: false, result: null, error: null });
 
@@ -124,10 +131,19 @@ const App: React.FC = () => {
   };
 
   const reset = () => {
-    setTextInput(''); setFile(null); setIsRecording(false); setRecordingDuration(0);
-    setShowFeedback(false);
-    setFeedbackSubmitted(false);
-    setFeedbackMessage('');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    // Small delay to allow scroll to start before UI changes
+    setTimeout(() => {
+      setTextInput(''); setFile(null); setIsRecording(false); setRecordingDuration(0);
+      setShowFeedback(false);
+      setFeedbackSubmitted(false);
+      setFeedbackMessage('');
+      if (audioUrl) {
+        URL.revokeObjectURL(audioUrl);
+        setAudioUrl(null);
+      }
+      setState(prev => ({ ...prev, result: null }));
+    }, 100);
   };
 
   const handleFeedbackSubmit = (e: React.FormEvent) => {
@@ -158,6 +174,10 @@ const App: React.FC = () => {
     try {
       let result;
       if (file) {
+        if (audioUrl) URL.revokeObjectURL(audioUrl);
+        const url = URL.createObjectURL(file);
+        setAudioUrl(url);
+
         const reader = new FileReader();
         reader.readAsDataURL(file);
         const base64 = await new Promise<string>((res) => {
@@ -219,18 +239,14 @@ const App: React.FC = () => {
             onClick={() => setActiveTab('finder')}
             className={`flex-1 flex items-center justify-center gap-2 py-4 rounded-2xl text-sm font-black uppercase tracking-widest transition-all ${activeTab === 'finder' ? 'bg-emerald-700 text-white shadow-lg' : 'text-emerald-400 hover:text-emerald-600'}`}
           >
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-            </svg>
+            <Search className="h-5 w-5" />
             <span className="hidden sm:inline">{isEn ? 'Finder' : 'Pencari'}</span>
           </button>
           <button 
             onClick={() => setActiveTab('library')}
             className={`flex-1 flex items-center justify-center gap-2 py-4 rounded-2xl text-sm font-black uppercase tracking-widest transition-all ${activeTab === 'library' ? 'bg-emerald-700 text-white shadow-lg' : 'text-emerald-400 hover:text-emerald-600'}`}
           >
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
-            </svg>
+            <Library className="h-5 w-5" />
             <span className="hidden sm:inline">{isEn ? 'Library' : 'Perpustakaan'}</span>
             {savedResults.length > 0 && (
               <span className="px-2 py-0.5 bg-emerald-100 dark:bg-emerald-800 text-emerald-700 dark:text-emerald-300 rounded-full text-[10px]">
@@ -242,9 +258,20 @@ const App: React.FC = () => {
       </div>
 
       <main className="max-w-4xl mx-auto px-4 relative">
-        {showFeedback && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-            <div className="bg-white dark:bg-emerald-900 p-8 rounded-[2.5rem] shadow-2xl max-w-lg w-full border-2 border-emerald-100 dark:border-emerald-800 animate-in zoom-in duration-200">
+        <AnimatePresence mode="wait">
+          {showFeedback && (
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
+            >
+              <motion.div 
+                initial={{ scale: 0.9, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                exit={{ scale: 0.9, opacity: 0 }}
+                className="bg-white dark:bg-emerald-900 p-8 rounded-[2.5rem] shadow-2xl max-w-lg w-full border-2 border-emerald-100 dark:border-emerald-800"
+              >
               <div className="flex justify-between items-center mb-6">
                 <h3 className="text-2xl font-black text-emerald-900 dark:text-white">
                   {isEn ? "Send Feedback" : "Kirim Masukan"}
@@ -319,13 +346,23 @@ const App: React.FC = () => {
                   </button>
                 </form>
               )}
-            </div>
-          </div>
+            </motion.div>
+          </motion.div>
         )}
 
         {showAbout && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-            <div className="bg-white dark:bg-emerald-900 p-8 rounded-[2.5rem] shadow-2xl max-w-2xl w-full border-2 border-emerald-100 dark:border-emerald-800 animate-in zoom-in duration-200 overflow-y-auto max-h-[90vh]">
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
+          >
+            <motion.div 
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              className="bg-white dark:bg-emerald-900 p-8 rounded-[2.5rem] shadow-2xl max-w-2xl w-full border-2 border-emerald-100 dark:border-emerald-800 overflow-y-auto max-h-[90vh]"
+            >
               <div className="flex justify-between items-center mb-8">
                 <h3 className="text-3xl font-black text-emerald-900 dark:text-white">
                   {isEn ? "About Nur Al-Quran Finder" : "Tentang Nur Al-Quran Finder"}
@@ -381,13 +418,23 @@ const App: React.FC = () => {
               >
                 {isEn ? "Close" : "Tutup"}
               </button>
-            </div>
-          </div>
+            </motion.div>
+          </motion.div>
         )}
 
         {tourStep !== null && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-emerald-950/70 backdrop-blur-sm">
-            <div className="bg-white p-8 rounded-3xl shadow-2xl max-w-sm w-full border-2 border-emerald-500 animate-in zoom-in duration-200">
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-emerald-950/70 backdrop-blur-sm"
+          >
+            <motion.div 
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              className="bg-white p-8 rounded-3xl shadow-2xl max-w-sm w-full border-2 border-emerald-500"
+            >
               <div className="flex justify-between items-center mb-4">
                 <span className="text-xs font-bold text-emerald-500 uppercase tracking-widest">{isEn ? 'Step' : 'Tahap'} {tourStep + 1} / 4</span>
                 <button onClick={() => setTourStep(null)} className="text-emerald-300 hover:text-emerald-600">
@@ -411,13 +458,23 @@ const App: React.FC = () => {
               <button onClick={nextTourStep} className="w-full py-4 bg-emerald-700 text-white rounded-2xl font-bold hover:bg-emerald-800 transition-colors">
                 {tourStep === 3 ? (isEn ? "Finish" : "Selesai") : (isEn ? "Next" : "Lanjut")}
               </button>
-            </div>
-          </div>
+            </motion.div>
+          </motion.div>
         )}
 
         {deleteConfirmIndex !== null && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-            <div className="bg-white dark:bg-emerald-900 p-8 rounded-3xl shadow-2xl max-w-sm w-full border-2 border-red-100 dark:border-red-900/30 animate-in zoom-in duration-200">
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
+          >
+            <motion.div 
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              className="bg-white dark:bg-emerald-900 p-8 rounded-3xl shadow-2xl max-w-sm w-full border-2 border-red-100 dark:border-red-900/30"
+            >
               <h3 className="text-2xl font-bold text-emerald-900 dark:text-emerald-50 mb-2">
                 {isEn ? "Delete Result?" : "Hapus Hasil?"}
               </h3>
@@ -438,12 +495,22 @@ const App: React.FC = () => {
                   {isEn ? "Cancel" : "Batal"}
                 </button>
               </div>
-            </div>
-          </div>
+            </motion.div>
+          </motion.div>
         )}
 
-        {activeTab === 'finder' && !state.result && (
-          <div className="space-y-12">
+        </AnimatePresence>
+
+        <AnimatePresence mode="wait">
+          {activeTab === 'finder' && !state.result && (
+            <motion.div 
+              key="finder-input"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -20 }}
+              transition={{ duration: 0.3 }}
+              className="space-y-12"
+            >
             <div className="bg-white p-8 rounded-3xl shadow-xl border border-emerald-100 space-y-8 no-print">
               <div>
                 <label className="block text-emerald-900 font-bold text-lg mb-3">{isEn ? 'Verse or Phrase' : 'Ayat atau Frasa'}</label>
@@ -471,16 +538,87 @@ const App: React.FC = () => {
                   </label>
                 </div>
 
-                <div className={`border-2 border-dashed rounded-3xl p-8 text-center flex flex-col items-center justify-center min-h-[180px] ${isRecording ? 'border-orange-400 bg-orange-50' : 'border-emerald-100 bg-emerald-50/10'}`}>
+                <div className={`border-2 border-dashed rounded-3xl p-8 text-center flex flex-col items-center justify-center min-h-[180px] relative ${isRecording ? 'border-orange-400 bg-orange-50' : 'border-emerald-100 bg-emerald-50/10'}`}>
+                  <button 
+                    onClick={() => setShowAudioSettings(!showAudioSettings)}
+                    className="absolute top-4 right-4 p-2 rounded-xl bg-white/50 dark:bg-black/20 text-emerald-600 hover:bg-emerald-100 transition-all"
+                    title={isEn ? "Audio Settings" : "Pengaturan Audio"}
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                    </svg>
+                  </button>
+
+                  {showAudioSettings && (
+                    <div className="absolute inset-0 bg-white/95 dark:bg-emerald-900/95 z-10 rounded-3xl p-6 flex flex-col justify-center space-y-4 animate-in fade-in duration-200">
+                      <div className="flex justify-between items-center">
+                        <h4 className="text-xs font-black uppercase tracking-widest text-emerald-700 dark:text-emerald-300">
+                          {isEn ? "Quality Settings" : "Pengaturan Kualitas"}
+                        </h4>
+                        <button onClick={() => setShowAudioSettings(false)} className="text-emerald-400 hover:text-emerald-600">
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                          </svg>
+                        </button>
+                      </div>
+                      
+                      <div className="space-y-3">
+                        <div className="flex flex-col gap-1 text-left">
+                          <label className="text-[9px] font-black uppercase text-emerald-500">{isEn ? "Sample Rate" : "Laju Sampel"}</label>
+                          <select 
+                            value={audioSampleRate} 
+                            onChange={(e) => setAudioSampleRate(parseInt(e.target.value))}
+                            className="text-xs p-2 bg-emerald-50 dark:bg-emerald-800 border border-emerald-100 dark:border-emerald-700 rounded-xl outline-none"
+                          >
+                            <option value="22050">22.05 kHz</option>
+                            <option value="44100">44.1 kHz</option>
+                            <option value="48000">48 kHz</option>
+                          </select>
+                        </div>
+                        <div className="flex flex-col gap-1 text-left">
+                          <label className="text-[9px] font-black uppercase text-emerald-500">{isEn ? "Bit Rate" : "Laju Bit"}</label>
+                          <select 
+                            value={audioBitRate} 
+                            onChange={(e) => setAudioBitRate(parseInt(e.target.value))}
+                            className="text-xs p-2 bg-emerald-50 dark:bg-emerald-800 border border-emerald-100 dark:border-emerald-700 rounded-xl outline-none"
+                          >
+                            <option value="64000">64 kbps</option>
+                            <option value="128000">128 kbps</option>
+                            <option value="192000">192 kbps</option>
+                            <option value="256000">256 kbps</option>
+                          </select>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
                   <button onClick={async () => {
                     if (isRecording) { mediaRecorderRef.current?.stop(); setIsRecording(false); }
                     else {
-                      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-                      const mr = new MediaRecorder(stream);
-                      mediaRecorderRef.current = mr; audioChunksRef.current = [];
-                      mr.ondataavailable = (e) => audioChunksRef.current.push(e.data);
-                      mr.onstop = () => { setFile(new File([new Blob(audioChunksRef.current, { type: 'audio/webm' })], `rec.webm`, { type: 'audio/webm' })); setTextInput(''); };
-                      mr.start(); setIsRecording(true);
+                      try {
+                        const stream = await navigator.mediaDevices.getUserMedia({ 
+                          audio: {
+                            sampleRate: audioSampleRate,
+                            channelCount: 1,
+                            echoCancellation: true,
+                            noiseSuppression: true
+                          } 
+                        });
+                        const mr = new MediaRecorder(stream, {
+                          audioBitsPerSecond: audioBitRate
+                        });
+                        mediaRecorderRef.current = mr; audioChunksRef.current = [];
+                        mr.ondataavailable = (e) => audioChunksRef.current.push(e.data);
+                        mr.onstop = () => { 
+                          setFile(new File([new Blob(audioChunksRef.current, { type: 'audio/webm' })], `rec.webm`, { type: 'audio/webm' })); 
+                          setTextInput(''); 
+                        };
+                        mr.start(); setIsRecording(true);
+                      } catch (err) {
+                        console.error("Recording error:", err);
+                        alert(isEn ? "Could not access microphone." : "Tidak dapat mengakses mikrofon.");
+                      }
                     }
                   }} className="flex flex-col items-center">
                     <p className="text-emerald-900 font-bold text-sm">{isRecording ? (isEn ? 'Stop' : 'Berhenti') : (isEn ? 'Record Voice' : 'Rekam Suara')}</p>
@@ -545,14 +683,25 @@ const App: React.FC = () => {
                 )}
               </div>
             )}
-          </div>
+          </motion.div>
         )}
 
-        {activeTab === 'finder' && state.result && (
-          <div className="space-y-6">
+      {activeTab === 'finder' && state.result && (
+        <motion.div 
+          key="finder-result"
+          initial={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
+          exit={{ opacity: 0, scale: 0.95 }}
+          transition={{ duration: 0.4 }}
+          className="space-y-6"
+        >
             <div className="flex flex-wrap items-center justify-between gap-4 no-print bg-white/10 dark:bg-black/20 p-4 rounded-2xl backdrop-blur-sm border border-emerald-100/20">
-              <button onClick={reset} className="flex items-center gap-2 text-emerald-700 dark:text-emerald-400 font-bold">
-                ← {isEn ? 'Find Another' : 'Cari Lagi'}
+              <button 
+                onClick={reset} 
+                className="flex items-center gap-2 px-5 py-2.5 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl font-bold transition-all shadow-md active:scale-95"
+              >
+                <RotateCcw className="h-4 w-4" />
+                {isEn ? 'Search Again' : 'Cari Lagi'}
               </button>
               
               <div className="flex flex-wrap items-center gap-6">
@@ -617,12 +766,31 @@ const App: React.FC = () => {
               translationFontSize={translationFontSize}
               highlightTerm={highlightTerm}
               autoScrollSpeed={autoScrollSpeed}
+              audioUrl={audioUrl || undefined}
+              onViewRelated={(item) => {
+                setState({
+                  ...state,
+                  result: {
+                    ...item,
+                    type: SourceType.UNKNOWN, // We don't know for sure if it's Quran or Hadith from RelatedContent, but we can guess or let Gemini handle it
+                    confidence: 1,
+                    timestamp: Date.now()
+                  } as IdentificationResult
+                });
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+              }}
             />
-          </div>
+          </motion.div>
         )}
 
         {activeTab === 'library' && savedResults.length > 0 && (
-          <div className="no-print">
+          <motion.div 
+            key="library-list"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="no-print"
+          >
             <div className="flex flex-col space-y-6 mb-10">
               <div className="flex flex-wrap items-center justify-between gap-4">
                 <h3 className="text-2xl font-bold text-emerald-950 dark:text-emerald-50 flex items-center gap-3">
@@ -763,11 +931,17 @@ const App: React.FC = () => {
                   );
                 })}
             </div>
-          </div>
+          </motion.div>
         )}
 
         {activeTab === 'library' && savedResults.length === 0 && (
-          <div className="text-center space-y-6 no-print animate-in fade-in slide-in-from-bottom-4 duration-700">
+          <motion.div 
+            key="library-empty"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -20 }}
+            className="text-center space-y-6 no-print"
+          >
             <div className="w-24 h-24 bg-emerald-100 dark:bg-emerald-900/50 rounded-full flex items-center justify-center mx-auto text-4xl">
               ✨
             </div>
@@ -787,8 +961,9 @@ const App: React.FC = () => {
             >
               {isEn ? "Explore Now" : "Jelajahi Sekarang"}
             </button>
-          </div>
+          </motion.div>
         )}
+        </AnimatePresence>
       </main>
 
       <footer className="mt-32 text-center text-emerald-600 text-sm pb-10 flex flex-col items-center gap-6 no-print">
@@ -800,9 +975,7 @@ const App: React.FC = () => {
             className="p-2 rounded-full bg-emerald-100 dark:bg-emerald-900 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-200 dark:hover:bg-emerald-800 transition-all"
             title={isEn ? "Send Feedback" : "Kirim Masukan"}
           >
-            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
-            </svg>
+            <MessageSquare className="h-5 w-5" />
           </button>
           <a 
             href="https://smartfaith.streamlit.app/" 
@@ -811,11 +984,7 @@ const App: React.FC = () => {
             className="p-2 rounded-full bg-emerald-100 dark:bg-emerald-900 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-200 dark:hover:bg-emerald-800 transition-all"
             title={isEn ? "Visit SmartFaith (Mother App)" : "Kunjungi SmartFaith (Aplikasi Induk)"}
           >
-            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <circle cx="12" cy="12" r="10"></circle>
-              <line x1="2" y1="12" x2="22" y2="12"></line>
-              <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path>
-            </svg>
+            <Globe className="h-5 w-5" />
           </a>
           <a 
             href="https://github.com/mrbrightsides" 
@@ -824,9 +993,7 @@ const App: React.FC = () => {
             className="p-2 rounded-full bg-emerald-100 dark:bg-emerald-900 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-200 dark:hover:bg-emerald-800 transition-all"
             title={isEn ? "Visit Developer Profile" : "Kunjungi Profil Pengembang"}
           >
-            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"></path>
-            </svg>
+            <Github className="h-5 w-5" />
           </a>
         </div>
       </footer>

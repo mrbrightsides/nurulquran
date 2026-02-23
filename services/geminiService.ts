@@ -1,6 +1,6 @@
 
 import { GoogleGenAI, Type } from "@google/genai";
-import { IdentificationResult } from "../types";
+import { IdentificationResult, RelatedContent } from "../types";
 
 const ai = new GoogleGenAI({ apiKey: import.meta.env.VITE_GEMINI_API_KEY || '' });
 
@@ -49,6 +49,14 @@ export const identifyContent = async (
         type: Type.STRING,
         description: 'Indonesian insight or context (Bahasa Indonesia)',
       },
+      asbabunNuzul: {
+        type: Type.STRING,
+        description: 'English Asbabun Nuzul (occasion of revelation) if applicable',
+      },
+      asbabunNuzulID: {
+        type: Type.STRING,
+        description: 'Indonesian Asbabun Nuzul (Sebab Turunnya Ayat) if applicable (Bahasa Indonesia)',
+      },
       confidence: {
         type: Type.NUMBER,
         description: 'Confidence score (0-1)',
@@ -68,6 +76,8 @@ export const identifyContent = async (
     - Provide 'translationID' in Indonesian (Bahasa Indonesia).
     - Provide 'context' in English.
     - Provide 'contextID' in Indonesian (Bahasa Indonesia).
+    - Provide 'asbabunNuzul' in English (if applicable).
+    - Provide 'asbabunNuzulID' in Indonesian (if applicable).
     Ensure the translations are high-quality and standard for Al-Quran and Hadith in both languages.`;
 
   const contents = isText 
@@ -114,6 +124,8 @@ export const getDailyWisdom = async (date: string): Promise<IdentificationResult
       transliteration: { type: Type.STRING },
       context: { type: Type.STRING },
       contextID: { type: Type.STRING },
+      asbabunNuzul: { type: Type.STRING },
+      asbabunNuzulID: { type: Type.STRING },
       confidence: { type: Type.NUMBER },
     },
     required: ['type', 'title', 'reference', 'arabicText', 'translation', 'translationID', 'transliteration', 'confidence'],
@@ -126,6 +138,8 @@ export const getDailyWisdom = async (date: string): Promise<IdentificationResult
     - Provide 'translationID' in Indonesian (Bahasa Indonesia).
     - Provide 'context' in English.
     - Provide 'contextID' in Indonesian (Bahasa Indonesia).
+    - Provide 'asbabunNuzul' in English (if applicable).
+    - Provide 'asbabunNuzulID' in Indonesian (if applicable).
     Ensure the translations are high-quality and standard. The content should be inspiring and relevant for a daily reflection.`;
 
   try {
@@ -145,5 +159,63 @@ export const getDailyWisdom = async (date: string): Promise<IdentificationResult
   } catch (error: any) {
     console.error("Gemini Daily Wisdom Error:", error);
     throw new Error("Failed to fetch daily wisdom.");
+  }
+};
+
+export const getRelatedContent = async (
+  currentResult: IdentificationResult
+): Promise<RelatedContent[]> => {
+  const model = 'gemini-3-pro-preview';
+  
+  const responseSchema = {
+    type: Type.ARRAY,
+    items: {
+      type: Type.OBJECT,
+      properties: {
+        title: { type: Type.STRING },
+        reference: { type: Type.STRING },
+        arabicText: { type: Type.STRING },
+        translation: { type: Type.STRING },
+        translationID: { type: Type.STRING },
+        transliteration: { type: Type.STRING },
+        asbabunNuzul: { type: Type.STRING },
+        asbabunNuzulID: { type: Type.STRING },
+      },
+      required: ['title', 'reference', 'arabicText', 'translation', 'translationID', 'transliteration'],
+    }
+  };
+
+  const systemInstruction = `You are an expert Islamic scholar. 
+    Task: Provide 3 related verses or hadiths based on the following content:
+    Title: ${currentResult.title}
+    Reference: ${currentResult.reference}
+    Arabic: ${currentResult.arabicText}
+    Translation: ${currentResult.translation}
+    
+    The related content should share similar themes, keywords, or contextual meaning.
+    MANDATORY BILINGUAL REQUIREMENT: 
+    - Provide 'translation' in English.
+    - Provide 'translationID' in Indonesian (Bahasa Indonesia).
+    - Provide 'asbabunNuzul' in English (if applicable).
+    - Provide 'asbabunNuzulID' in Indonesian (if applicable).
+    Ensure the translations are high-quality and standard.`;
+
+  try {
+    const response = await ai.models.generateContent({
+      model,
+      contents: "Find related verses or hadiths.",
+      config: {
+        systemInstruction,
+        responseMimeType: "application/json",
+        responseSchema,
+        temperature: 0.5,
+      },
+    });
+
+    const result = JSON.parse(response.text.trim()) as RelatedContent[];
+    return result;
+  } catch (error: any) {
+    console.error("Gemini Related Content Error:", error);
+    return [];
   }
 };

@@ -1,6 +1,8 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { IdentificationResult, SourceType } from '../types';
+import { Share2, Copy, Check, Printer, Play, Pause, Bookmark, X, Link, MessageSquare, BookOpen } from 'lucide-react';
+import { IdentificationResult, SourceType, RelatedContent } from '../types';
+import { getRelatedContent } from '../services/geminiService';
 
 interface ResultDisplayProps {
   result: IdentificationResult;
@@ -10,6 +12,8 @@ interface ResultDisplayProps {
   translationFontSize?: number;
   highlightTerm?: string;
   autoScrollSpeed?: number;
+  audioUrl?: string;
+  onViewRelated?: (item: RelatedContent) => void;
 }
 
 const ResultDisplay: React.FC<ResultDisplayProps> = ({ 
@@ -19,7 +23,9 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({
   arabicFontSize = 48,
   translationFontSize = 18,
   highlightTerm = '',
-  autoScrollSpeed = 0
+  autoScrollSpeed = 0,
+  audioUrl,
+  onViewRelated
 }) => {
   const [isSaved, setIsSaved] = useState(false);
   const [isCopied, setIsCopied] = useState(false);
@@ -28,9 +34,13 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({
   const [userNote, setUserNote] = useState(result.userNote || '');
   const [userCategory, setUserCategory] = useState(result.userCategory || '');
   const [isEditingSaveInfo, setIsEditingSaveInfo] = useState(false);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [relatedContent, setRelatedContent] = useState<RelatedContent[]>([]);
+  const [isFetchingRelated, setIsFetchingRelated] = useState(false);
   
   const arabicRef = useRef<HTMLDivElement>(null);
   const scrollIntervalRef = useRef<number | null>(null);
+  const audioRef = useRef<HTMLAudioElement>(null);
 
   const isEn = lang === 'en';
   const isQuran = result.type === SourceType.QURAN;
@@ -53,6 +63,21 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({
       if (scrollIntervalRef.current) clearInterval(scrollIntervalRef.current);
     };
   }, [autoScrollSpeed]);
+
+  useEffect(() => {
+    const fetchRelated = async () => {
+      setIsFetchingRelated(true);
+      try {
+        const related = await getRelatedContent(result);
+        setRelatedContent(related);
+      } catch (err) {
+        console.error(err);
+      } finally {
+        setIsFetchingRelated(false);
+      }
+    };
+    fetchRelated();
+  }, [result]);
 
   const highlightText = (text: string, term: string) => {
     if (!term.trim()) return text;
@@ -107,6 +132,17 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({
     }
   };
 
+  const toggleAudio = () => {
+    if (audioRef.current) {
+      if (isPlaying) {
+        audioRef.current.pause();
+      } else {
+        audioRef.current.play();
+      }
+      setIsPlaying(!isPlaying);
+    }
+  };
+
   return (
     <div className="max-w-3xl mx-auto mt-12 space-y-10">
       <div className="bg-white dark:bg-emerald-900/80 rounded-[2.5rem] shadow-2xl overflow-hidden border-2 border-emerald-50 dark:border-emerald-800 backdrop-blur-md">
@@ -124,14 +160,33 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({
           </div>
 
           <div className="flex flex-col gap-4 w-full md:w-auto no-print relative z-10">
+            {audioUrl && (
+              <div className="flex items-center gap-3 bg-emerald-800/40 p-3 rounded-2xl border border-emerald-700/50">
+                <button 
+                  onClick={toggleAudio}
+                  className="w-10 h-10 flex items-center justify-center bg-emerald-400 text-emerald-950 rounded-full hover:bg-emerald-300 transition-all shadow-md"
+                >
+                  {isPlaying ? <Pause className="h-5 w-5 fill-current" /> : <Play className="h-5 w-5 fill-current" />}
+                </button>
+                <div className="flex flex-col">
+                  <span className="text-[9px] font-black uppercase text-emerald-400 tracking-widest">{isEn ? 'Input Audio' : 'Audio Input'}</span>
+                  <span className="text-[10px] font-bold text-white">{isEn ? 'Recorded Clip' : 'Klip Rekaman'}</span>
+                </div>
+                <audio 
+                  ref={audioRef} 
+                  src={audioUrl} 
+                  onEnded={() => setIsPlaying(false)}
+                  className="hidden"
+                />
+              </div>
+            )}
+
             <button 
               onClick={handleShare}
               className={`flex items-center justify-center gap-2 px-6 py-3 rounded-2xl font-bold transition-all shadow-lg ${isShareCopied ? 'bg-emerald-500 text-white' : 'bg-emerald-700 hover:bg-emerald-600 text-white'}`}
               title={isEn ? "Share this finding" : "Bagikan temuan ini"}
             >
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
-              </svg>
+              {isShareCopied ? <Check className="h-5 w-5" /> : <Share2 className="h-5 w-5" />}
               {isShareCopied ? (isEn ? 'Copied!' : 'Tersalin!') : (isEn ? 'Share' : 'Bagikan')}
             </button>
 
@@ -195,6 +250,15 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({
             </div>
           )}
 
+          {(isEn ? result.asbabunNuzul : result.asbabunNuzulID) && (
+            <div className="bg-white dark:bg-emerald-800/10 p-8 rounded-[2rem] border border-emerald-100 dark:border-emerald-800 shadow-sm space-y-4">
+              <h3 className="text-[9px] font-black text-emerald-500 uppercase tracking-[0.2em]">{isEn ? 'Asbabun Nuzul / Occasion of Revelation' : 'Asbabun Nuzul / Sebab Turunnya'}</h3>
+              <p className="text-emerald-800 dark:text-emerald-200 font-medium leading-relaxed">
+                {highlightText(isEn ? result.asbabunNuzul! : result.asbabunNuzulID!, highlightTerm)}
+              </p>
+            </div>
+          )}
+
           <div className="bg-white dark:bg-emerald-800/10 p-8 rounded-[2rem] border border-emerald-100 dark:border-emerald-800 shadow-sm space-y-4">
             <h3 className="text-[9px] font-black text-emerald-500 uppercase tracking-[0.2em]">{isEn ? 'My Reflections' : 'Refleksi Saya'}</h3>
             <textarea 
@@ -204,6 +268,41 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({
               className="w-full p-6 rounded-2xl border-2 border-emerald-50 dark:border-emerald-800 bg-emerald-50/10 dark:bg-black/20 text-emerald-950 dark:text-emerald-50 font-medium outline-none text-md h-40 resize-none focus:border-emerald-500 transition-all"
               title={isEn ? "Add your personal notes" : "Tambah catatan pribadi Anda"}
             />
+          </div>
+
+          <div className="space-y-6">
+            <h3 className="text-sm font-black text-emerald-500 uppercase tracking-[0.2em] flex items-center gap-2">
+              <Link className="h-4 w-4" />
+              {isEn ? 'Related Wisdom' : 'Hikmah Terkait'}
+            </h3>
+            
+            {isFetchingRelated ? (
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {[1, 2, 3].map(i => (
+                  <div key={i} className="h-32 bg-emerald-50 dark:bg-emerald-900/40 rounded-3xl animate-pulse"></div>
+                ))}
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {relatedContent.map((item, idx) => (
+                  <div 
+                    key={idx} 
+                    onClick={() => onViewRelated && onViewRelated(item)}
+                    className="bg-white dark:bg-emerald-900/40 p-5 rounded-3xl border border-emerald-50 dark:border-emerald-800 shadow-sm hover:shadow-md transition-all group cursor-pointer"
+                  >
+                    <p className="font-arabic text-right text-lg text-emerald-800 dark:text-emerald-100 leading-relaxed mb-3 line-clamp-2" dir="rtl">
+                      {item.arabicText}
+                    </p>
+                    <p className="text-[10px] text-emerald-700 dark:text-emerald-300 italic mb-2 line-clamp-2">
+                      "{isEn ? item.translation : item.translationID}"
+                    </p>
+                    <div className="pt-2 border-t border-emerald-50 dark:border-emerald-800 flex justify-between items-center">
+                      <span className="text-[8px] font-bold text-emerald-400">{item.title} • {item.reference}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
 
           {isEditingSaveInfo && (
@@ -228,7 +327,7 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({
               className={`flex items-center gap-3 px-6 py-3 rounded-xl font-black text-[10px] uppercase tracking-widest transition-all ${isSaved ? 'bg-emerald-700 text-white' : 'bg-emerald-50 dark:bg-emerald-800 text-emerald-600 dark:text-emerald-400 border border-emerald-100 dark:border-emerald-700'}`}
               title={isEn ? "Save this result to your library" : "Simpan hasil ini ke perpustakaan Anda"}
             >
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill={isSaved ? "currentColor" : "none"} viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" /></svg>
+              <Bookmark className={`h-5 w-5 ${isSaved ? 'fill-current' : ''}`} />
               {isSaved ? (isEn ? 'Recorded' : 'Tersimpan') : (isEn ? 'Record Ayat' : 'Simpan Ayat')}
             </button>
             <button 
@@ -236,9 +335,7 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({
               className={`flex items-center gap-3 px-6 py-3 rounded-xl font-black text-[10px] uppercase tracking-widest transition-all ${isShareCopied ? 'bg-emerald-500 text-white' : 'bg-emerald-50 dark:bg-emerald-800 text-emerald-600 dark:text-emerald-400 border border-emerald-100 dark:border-emerald-700'}`}
               title={isEn ? "Share this finding" : "Bagikan temuan ini"}
             >
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
-              </svg>
+              {isShareCopied ? <Check className="h-4 w-4" /> : <Share2 className="h-4 w-4" />}
               {isShareCopied ? (isEn ? 'Copied!' : 'Tersalin!') : (isEn ? 'Share' : 'Bagikan')}
             </button>
             <button 
@@ -246,9 +343,7 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({
               className="flex items-center gap-3 px-6 py-3 rounded-xl bg-emerald-50 dark:bg-emerald-800 text-emerald-600 dark:text-emerald-400 border border-emerald-100 dark:border-emerald-700 font-black text-[10px] uppercase tracking-widest transition-all"
               title={isEn ? "Print this result" : "Cetak hasil ini"}
             >
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4" />
-              </svg>
+              <Printer className="h-4 w-4" />
               {isEn ? 'Print' : 'Cetak'}
             </button>
           </div>
