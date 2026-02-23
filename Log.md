@@ -14,6 +14,7 @@ This log tracks the major updates and feature implementations for the Nur Al-Qur
 
 ### Fixed
 - **Image Generation Error**: Fixed "Attempting to parse an unsupported color function 'oklch'" by using hex values in the `ShareCard` component.
+- **Vercel Build Resolution**: Ensured `html2canvas` and its type definitions are properly registered to prevent Rollup resolution errors during deployment.
 
 ---
 
