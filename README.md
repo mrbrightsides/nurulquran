@@ -72,7 +72,8 @@ Nur Al-Quran Finder leverages the reasoning capabilities of **Gemini AI** to ana
 - **Quranic Text**: Sourced via the [Tanzil Project](http://tanzil.net).
 - **Hadith Database**: Inspired by and verified against [Sunnah.com](https://sunnah.com).
 - **AI Technology**: Powered by [Google Gemini AI](https://ai.google.dev).
-- **Developer**: [Telegram](https://t.me/khudriakhmad)
+- **Developer**: [Telegram](https://t.me/khudriakhmad).
+- **Changelog**: See [Log.md](Log.md) for detailed update history.
 
 ---
 
