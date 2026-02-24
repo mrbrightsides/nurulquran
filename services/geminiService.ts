@@ -2,13 +2,51 @@
 import { GoogleGenAI, Type } from "@google/genai";
 import { IdentificationResult, RelatedContent } from "../types";
 
-const ai = new GoogleGenAI({ apiKey: import.meta.env.VITE_GEMINI_API_KEY || process.env.API_KEY || '' });
+const ai = new GoogleGenAI({ apiKey: import.meta.env.VITE_GEMINI_API_KEY || '' });
+
+const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+
+const callGeminiWithRetry = async (params: any, retries = 3, delay = 2000): Promise<any> => {
+  let lastError;
+  for (let i = 0; i < retries; i++) {
+    try {
+      const response = await ai.models.generateContent(params);
+      
+      // Check if text exists and is not empty
+      if (response && response.text && response.text.trim()) {
+        return response;
+      }
+      
+      // Check for safety blocks
+      const candidate = response.candidates?.[0];
+      if (candidate?.finishReason === 'SAFETY') {
+        throw new Error("AI response blocked by safety filters. Please try a different query.");
+      }
+      
+      throw new Error("Empty response from AI");
+    } catch (error: any) {
+      lastError = error;
+      const is503 = error.message?.includes("503") || error.message?.includes("UNAVAILABLE");
+      const is429 = error.message?.includes("429") || error.message?.includes("RESOURCE_EXHAUSTED");
+      const isEmpty = error.message?.includes("Empty response from AI");
+      
+      if (is503 || is429 || isEmpty) {
+        console.warn(`Gemini API issue (attempt ${i + 1}/${retries}): ${error.message}. Retrying in ${delay}ms...`);
+        await sleep(delay);
+        delay *= 2; // Exponential backoff
+        continue;
+      }
+      throw error; // Don't retry for safety blocks or other fatal errors
+    }
+  }
+  throw lastError;
+};
 
 export const identifyContent = async (
   input: string | { data: string; mimeType: string },
   isText: boolean
 ): Promise<IdentificationResult> => {
-  const model = 'gemini-3.1-pro-preview';
+  let model = 'gemini-3.1-pro-preview';
   
   const responseSchema = {
     type: Type.OBJECT,
@@ -69,60 +107,75 @@ export const identifyContent = async (
     required: ['type', 'title', 'reference', 'arabicText', 'translation', 'translationID', 'transliteration', 'confidence'],
   };
 
-  const systemInstruction = `You are an expert Islamic scholar and educator. 
-    Task: Identify and analyze the source of the input for educational purposes.
+  const systemInstruction = `You are an expert Islamic scholar. 
+    Task: Identify the source of the input.
     MANDATORY BILINGUAL REQUIREMENT: 
-    - Provide 'translation' in English using public domain or standard scholarly versions.
+    - Provide 'translation' in English.
     - Provide 'translationID' in Indonesian (Bahasa Indonesia).
     - Provide 'context' in English.
     - Provide 'contextID' in Indonesian (Bahasa Indonesia).
     - Provide 'asbabunNuzul' in English (if applicable).
     - Provide 'asbabunNuzulID' in Indonesian (if applicable).
-    
-    If the content is a well-known verse or hadith, focus on providing the correct reference and educational context. 
     Ensure the translations are high-quality and standard for Al-Quran and Hadith in both languages.`;
 
   const contents = isText 
-    ? { parts: [{ text: `Identify and provide educational context for this Islamic text: "${input as string}"` }] }
+    ? { parts: [{ text: `Identify this: "${input as string}"` }] }
     : {
         parts: [
           { inlineData: input as { data: string; mimeType: string } },
-          { text: "Analyze this media, identify the Islamic text mentioned, and provide educational translations and context in both English and Indonesian." }
+          { text: "Analyze this media and identify the Islamic text mentioned. Provide translations in both English and Indonesian." }
         ]
       };
 
   try {
-    const response = await ai.models.generateContent({
-      model,
-      contents,
-      config: {
-        systemInstruction,
-        responseMimeType: "application/json",
-        responseSchema,
-        temperature: 0.1,
-      },
-    });
-
-    const candidate = response.candidates?.[0];
-    if (candidate?.finishReason === 'RECITATION') {
-      throw new Error("The content was identified as a protected recitation. Please try a shorter segment or ask for a summary of the verse/hadith.");
+    let response;
+    try {
+      response = await callGeminiWithRetry({
+        model,
+        contents,
+        config: {
+          systemInstruction,
+          responseMimeType: "application/json",
+          responseSchema,
+          temperature: 0.2,
+        },
+      });
+    } catch (err: any) {
+      // Fallback to Flash if Pro is failing due to demand
+      if (err.message?.includes("503") || err.message?.includes("UNAVAILABLE")) {
+        console.info("Falling back to gemini-3-flash-preview due to high demand on Pro model.");
+        model = 'gemini-3-flash-preview';
+        response = await callGeminiWithRetry({
+          model,
+          contents,
+          config: {
+            systemInstruction,
+            responseMimeType: "application/json",
+            responseSchema,
+            temperature: 0.2,
+          },
+        });
+      } else {
+        throw err;
+      }
     }
 
-    const text = response.text;
-    if (!text) {
-      console.error("Empty response from Gemini (identifyContent). Full response:", JSON.stringify(response, null, 2));
-      throw new Error("No content generated from Gemini API (identifyContent). This might be due to safety filters or recitation blocks.");
-    }
-    const result = JSON.parse(text.trim()) as IdentificationResult;
+    const result = JSON.parse(response.text.trim()) as IdentificationResult;
     return result;
   } catch (error: any) {
     console.error("Gemini API Error:", error);
+    if (error.message?.includes("Requested entity was not found")) {
+      throw new Error("API Key issue: Please try selecting your API key again using the key icon in the header.");
+    }
+    if (error.message?.includes("503") || error.message?.includes("UNAVAILABLE")) {
+      throw new Error("The AI service is currently overloaded. Please wait a moment and try again.");
+    }
     throw new Error(error.message || "An unexpected error occurred.");
   }
 };
 
 export const getDailyWisdom = async (date: string): Promise<IdentificationResult> => {
-  const model = 'gemini-3-flash-preview';
+  let model = 'gemini-3.1-pro-preview';
   
   const responseSchema = {
     type: Type.OBJECT,
@@ -155,23 +208,37 @@ export const getDailyWisdom = async (date: string): Promise<IdentificationResult
     Ensure the translations are high-quality and standard. The content should be inspiring and relevant for a daily reflection.`;
 
   try {
-    const response = await ai.models.generateContent({
-      model,
-      contents: "Generate today's wisdom.",
-      config: {
-        systemInstruction,
-        responseMimeType: "application/json",
-        responseSchema,
-        temperature: 0.7, // Slightly higher for variety
-      },
-    });
-
-    const text = response.text;
-    if (!text) {
-      console.error("Empty response from Gemini (getDailyWisdom). Full response:", JSON.stringify(response, null, 2));
-      throw new Error("No content generated from Gemini API (getDailyWisdom). This might be due to safety filters.");
+    let response;
+    try {
+      response = await callGeminiWithRetry({
+        model,
+        contents: "Generate today's wisdom.",
+        config: {
+          systemInstruction,
+          responseMimeType: "application/json",
+          responseSchema,
+          temperature: 0.7,
+        },
+      });
+    } catch (err: any) {
+      if (err.message?.includes("503") || err.message?.includes("UNAVAILABLE")) {
+        model = 'gemini-3-flash-preview';
+        response = await callGeminiWithRetry({
+          model,
+          contents: "Generate today's wisdom.",
+          config: {
+            systemInstruction,
+            responseMimeType: "application/json",
+            responseSchema,
+            temperature: 0.7,
+          },
+        });
+      } else {
+        throw err;
+      }
     }
-    const result = JSON.parse(text.trim()) as IdentificationResult;
+
+    const result = JSON.parse(response.text.trim()) as IdentificationResult;
     return result;
   } catch (error: any) {
     console.error("Gemini Daily Wisdom Error:", error);
@@ -182,7 +249,7 @@ export const getDailyWisdom = async (date: string): Promise<IdentificationResult
 export const getRelatedContent = async (
   currentResult: IdentificationResult
 ): Promise<RelatedContent[]> => {
-  const model = 'gemini-3-flash-preview';
+  let model = 'gemini-3.1-pro-preview';
   
   const responseSchema = {
     type: Type.ARRAY,
@@ -218,23 +285,37 @@ export const getRelatedContent = async (
     Ensure the translations are high-quality and standard.`;
 
   try {
-    const response = await ai.models.generateContent({
-      model,
-      contents: "Find related verses or hadiths.",
-      config: {
-        systemInstruction,
-        responseMimeType: "application/json",
-        responseSchema,
-        temperature: 0.5,
-      },
-    });
-
-    const text = response.text;
-    if (!text) {
-      console.error("Empty response from Gemini (getRelatedContent). Full response:", JSON.stringify(response, null, 2));
-      throw new Error("No content generated from Gemini API (getRelatedContent). This might be due to safety filters.");
+    let response;
+    try {
+      response = await callGeminiWithRetry({
+        model,
+        contents: "Find related verses or hadiths.",
+        config: {
+          systemInstruction,
+          responseMimeType: "application/json",
+          responseSchema,
+          temperature: 0.5,
+        },
+      });
+    } catch (err: any) {
+      if (err.message?.includes("503") || err.message?.includes("UNAVAILABLE")) {
+        model = 'gemini-3-flash-preview';
+        response = await callGeminiWithRetry({
+          model,
+          contents: "Find related verses or hadiths.",
+          config: {
+            systemInstruction,
+            responseMimeType: "application/json",
+            responseSchema,
+            temperature: 0.5,
+          },
+        });
+      } else {
+        throw err;
+      }
     }
-    const result = JSON.parse(text.trim()) as RelatedContent[];
+
+    const result = JSON.parse(response.text.trim()) as RelatedContent[];
     return result;
   } catch (error: any) {
     console.error("Gemini Related Content Error:", error);

@@ -4,6 +4,28 @@ This log tracks the major updates and feature implementations for the Nur Al-Qur
 
 ---
 
+## [2026-02-23] - API Reliability & Fallback
+### Added
+- **Exponential Backoff Retry**: Implemented a robust retry mechanism for Gemini API calls to handle temporary 503 (Service Unavailable) and 429 (Rate Limit) errors.
+- **Model Fallback**: Added automatic fallback to `gemini-3-flash-preview` if the primary `gemini-3.1-pro-preview` model is experiencing high demand.
+- **Improved Error Safety**: Fixed potential crashes caused by empty AI responses by adding strict validation before processing results.
+- **Safety Block Detection**: Added detection for responses blocked by safety filters, providing clearer feedback to the user.
+- **Empty Response Recovery**: The application now automatically retries if the AI returns an empty response, improving reliability in unstable network conditions.
+
+## [2026-02-23] - Reliability & API Updates
+### Added
+- **API Key Selection**: Added a "Key" icon in the header allowing users to connect their own Gemini API key for better reliability and higher quotas.
+- **Improved Error Handling**: Added specific guidance for API key issues and empty responses.
+
+### Improved
+- **Model Upgrade**: Switched to `gemini-3.1-pro-preview` for all identification and wisdom generation tasks to ensure the highest accuracy and reasoning capabilities.
+
+## [2026-02-23] - Smart Highlighting & UX Improvements
+### Added
+- **Smart Highlighting**: Automatically highlights search terms in the results (Arabic, Transliteration, Translation, and Context).
+- **Auto-Scroll to Match**: The application now automatically scrolls to the first occurrence of the highlighted term, making it easier to find relevant parts in long verses (e.g., Al-Baqarah 282).
+- **Visual Feedback**: Highlighted terms now feature a subtle pulse animation and glow effect to draw the user's eye.
+
 ## [2026-02-23] - Share Card & Documentation Update
 ### Added
 - **Share Card Generator**: High-quality 9:16 image generation for social media (TikTok, Reels, WhatsApp).

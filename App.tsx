@@ -186,6 +186,7 @@ const App: React.FC = () => {
         result = await identifyContent({ data: base64, mimeType: file.type || 'audio/webm' }, false);
       } else {
         result = await identifyContent(textInput, true);
+        setHighlightTerm(textInput);
       }
       // Add timestamp to the result
       const finalResult = { ...result, timestamp: Date.now() };
@@ -231,6 +232,11 @@ const App: React.FC = () => {
         setLang={setLang} 
         darkMode={darkMode} 
         setDarkMode={setDarkMode} 
+        onSelectKey={async () => {
+          if (window.aistudio) {
+            await window.aistudio.openSelectKey();
+          }
+        }}
       />
 
       <div className="max-w-4xl mx-auto px-4 mb-12 no-print">

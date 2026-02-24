@@ -50,3 +50,12 @@ export interface AppState {
   result: IdentificationResult | null;
   error: string | null;
 }
+
+declare global {
+  interface Window {
+    aistudio: {
+      hasSelectedApiKey: () => Promise<boolean>;
+      openSelectKey: () => Promise<void>;
+    };
+  }
+}

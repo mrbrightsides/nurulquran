@@ -42,6 +42,7 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({
   const [isFetchingRelated, setIsFetchingRelated] = useState(false);
   
   const arabicRef = useRef<HTMLDivElement>(null);
+  const translationRef = useRef<HTMLDivElement>(null);
   const scrollIntervalRef = useRef<number | null>(null);
   const audioRef = useRef<HTMLAudioElement>(null);
   const shareCardRef = useRef<HTMLDivElement>(null);
@@ -83,6 +84,19 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({
     fetchRelated();
   }, [result]);
 
+  useEffect(() => {
+    if (highlightTerm && highlightTerm.trim()) {
+      // Small delay to ensure marks are rendered
+      const timer = setTimeout(() => {
+        const firstMark = document.querySelector('mark');
+        if (firstMark) {
+          firstMark.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+      }, 500);
+      return () => clearTimeout(timer);
+    }
+  }, [highlightTerm, result]);
+
   const highlightText = (text: string, term: string) => {
     if (!term.trim()) return text;
     const parts = text.split(new RegExp(`(${term})`, 'gi'));
@@ -90,7 +104,7 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({
       <>
         {parts.map((part, i) => 
           part.toLowerCase() === term.toLowerCase() ? (
-            <mark key={i} className="bg-yellow-300 dark:bg-yellow-600 rounded px-1">{part}</mark>
+            <mark key={i} className="bg-yellow-300 dark:bg-yellow-600 rounded px-1 animate-pulse shadow-[0_0_10px_rgba(253,224,71,0.5)]">{part}</mark>
           ) : part
         )}
       </>
@@ -266,9 +280,11 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({
             </div>
             <div className="bg-emerald-50/20 dark:bg-black/30 p-8 rounded-[2rem] border border-emerald-100 dark:border-emerald-800 shadow-sm">
               <h3 className="text-[9px] font-black text-emerald-500 uppercase mb-4 tracking-[0.2em]">{isEn ? 'Translation' : 'Terjemahan'}</h3>
-              <p className="text-emerald-800 dark:text-emerald-200 italic font-medium leading-relaxed" style={{ fontSize: `${translationFontSize}px` }}>
-                "{highlightText(isEn ? result.translation : result.translationID, highlightTerm)}"
-              </p>
+              <div ref={translationRef}>
+                <p className="text-emerald-800 dark:text-emerald-200 italic font-medium leading-relaxed" style={{ fontSize: `${translationFontSize}px` }}>
+                  "{highlightText(isEn ? result.translation : result.translationID, highlightTerm)}"
+                </p>
+              </div>
             </div>
           </div>
 
