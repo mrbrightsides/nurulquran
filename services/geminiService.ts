@@ -101,7 +101,11 @@ export const identifyContent = async (
       },
     });
 
-    const result = JSON.parse(response.text.trim()) as IdentificationResult;
+    const text = response.text;
+    if (!text) {
+      throw new Error("No content generated from Gemini API.");
+    }
+    const result = JSON.parse(text.trim()) as IdentificationResult;
     return result;
   } catch (error: any) {
     console.error("Gemini API Error:", error);
@@ -154,7 +158,11 @@ export const getDailyWisdom = async (date: string): Promise<IdentificationResult
       },
     });
 
-    const result = JSON.parse(response.text.trim()) as IdentificationResult;
+    const text = response.text;
+    if (!text) {
+      throw new Error("No content generated from Gemini API.");
+    }
+    const result = JSON.parse(text.trim()) as IdentificationResult;
     return result;
   } catch (error: any) {
     console.error("Gemini Daily Wisdom Error:", error);
@@ -212,7 +220,11 @@ export const getRelatedContent = async (
       },
     });
 
-    const result = JSON.parse(response.text.trim()) as RelatedContent[];
+    const text = response.text;
+    if (!text) {
+      throw new Error("No content generated from Gemini API.");
+    }
+    const result = JSON.parse(text.trim()) as RelatedContent[];
     return result;
   } catch (error: any) {
     console.error("Gemini Related Content Error:", error);
