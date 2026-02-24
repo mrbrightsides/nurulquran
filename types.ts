@@ -45,17 +45,17 @@ export interface IdentificationResult {
   userCategory?: string; 
 }
 
-export interface AppState {
-  isAnalyzing: boolean;
-  result: IdentificationResult | null;
-  error: string | null;
-}
-
 declare global {
   interface Window {
-    aistudio: {
+    aistudio?: {
       hasSelectedApiKey: () => Promise<boolean>;
       openSelectKey: () => Promise<void>;
     };
   }
+}
+
+export interface AppState {
+  isAnalyzing: boolean;
+  result: IdentificationResult | null;
+  error: string | null;
 }

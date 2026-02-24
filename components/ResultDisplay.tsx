@@ -1,7 +1,8 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Share2, Copy, Check, Printer, Play, Pause, Bookmark, X, Link, MessageSquare, BookOpen, Image as ImageIcon, Download } from 'lucide-react';
+import { Share2, Copy, Check, Printer, Play, Pause, Bookmark, X, Link, MessageSquare, BookOpen, Image as ImageIcon, Download, Volume2 } from 'lucide-react';
 import html2canvas from 'html2canvas';
+import WaveSurfer from 'wavesurfer.js';
 import { IdentificationResult, SourceType, RelatedContent } from '../types';
 import { getRelatedContent } from '../services/geminiService';
 import ShareCard from './ShareCard';
@@ -40,12 +41,15 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({
   const [isPlaying, setIsPlaying] = useState(false);
   const [relatedContent, setRelatedContent] = useState<RelatedContent[]>([]);
   const [isFetchingRelated, setIsFetchingRelated] = useState(false);
+  const [waveformReady, setWaveformReady] = useState(false);
   
   const arabicRef = useRef<HTMLDivElement>(null);
   const translationRef = useRef<HTMLDivElement>(null);
   const scrollIntervalRef = useRef<number | null>(null);
   const audioRef = useRef<HTMLAudioElement>(null);
   const shareCardRef = useRef<HTMLDivElement>(null);
+  const waveformRef = useRef<HTMLDivElement>(null);
+  const wavesurferRef = useRef<WaveSurfer | null>(null);
 
   const isEn = lang === 'en';
   const isQuran = result.type === SourceType.QURAN;
@@ -99,18 +103,30 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({
 
   const highlightText = (text: string, term: string) => {
     if (!term.trim()) return text;
-    const parts = text.split(new RegExp(`(${term})`, 'gi'));
+    
+    // Split terms by space, but keep quoted phrases together
+    const terms = term.match(/(?:[^\s"]+|"[^"]*")+/g) || [];
+    const cleanTerms = terms.map(t => t.replace(/"/g, '').trim()).filter(t => t.length > 0);
+    
+    if (cleanTerms.length === 0) return text;
+    
+    // Create a regex that matches any of the terms
+    const pattern = cleanTerms.map(t => t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|');
+    const regex = new RegExp(`(${pattern})`, 'gi');
+    
+    const parts = text.split(regex);
+    
     return (
       <>
-        {parts.map((part, i) => 
-          part.toLowerCase() === term.toLowerCase() ? (
+        {parts.map((part, i) => {
+          const isMatch = cleanTerms.some(t => part.toLowerCase() === t.toLowerCase());
+          return isMatch ? (
             <mark key={i} className="bg-yellow-300 dark:bg-yellow-600 rounded px-1 animate-pulse shadow-[0_0_10px_rgba(253,224,71,0.5)]">{part}</mark>
-          ) : part
-        )}
+          ) : part;
+        })}
       </>
     );
   };
-
   const handleShare = async () => {
     const translationText = isEn ? result.translation : result.translationID;
     let shareText = `Nur Al-Quran Finder:\n\n${result.title} (${result.reference})\nArabic: ${result.arabicText}\nTranslation: "${translationText}"\n\nShared via Nur Al-Quran Finder`;
@@ -150,8 +166,41 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({
     }
   };
 
+  useEffect(() => {
+    if (audioUrl && waveformRef.current) {
+      const ws = WaveSurfer.create({
+        container: waveformRef.current,
+        waveColor: '#10b981', // emerald-500
+        progressColor: '#059669', // emerald-600
+        cursorColor: '#34d399', // emerald-400
+        barWidth: 2,
+        barRadius: 3,
+        height: 60,
+        normalize: true
+      });
+
+      ws.load(audioUrl);
+      
+      ws.on('ready', () => {
+        setWaveformReady(true);
+      });
+
+      ws.on('play', () => setIsPlaying(true));
+      ws.on('pause', () => setIsPlaying(false));
+      ws.on('finish', () => setIsPlaying(false));
+
+      wavesurferRef.current = ws;
+
+      return () => {
+        ws.destroy();
+      };
+    }
+  }, [audioUrl]);
+
   const toggleAudio = () => {
-    if (audioRef.current) {
+    if (wavesurferRef.current) {
+      wavesurferRef.current.playPause();
+    } else if (audioRef.current) {
       if (isPlaying) {
         audioRef.current.pause();
       } else {
@@ -206,17 +255,32 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({
 
           <div className="flex flex-col gap-4 w-full md:w-auto no-print relative z-10">
             {audioUrl && (
-              <div className="flex items-center gap-3 bg-emerald-800/40 p-3 rounded-2xl border border-emerald-700/50">
-                <button 
-                  onClick={toggleAudio}
-                  className="w-10 h-10 flex items-center justify-center bg-emerald-400 text-emerald-950 rounded-full hover:bg-emerald-300 transition-all shadow-md"
-                >
-                  {isPlaying ? <Pause className="h-5 w-5 fill-current" /> : <Play className="h-5 w-5 fill-current" />}
-                </button>
-                <div className="flex flex-col">
-                  <span className="text-[9px] font-black uppercase text-emerald-400 tracking-widest">{isEn ? 'Input Audio' : 'Audio Input'}</span>
-                  <span className="text-[10px] font-bold text-white">{isEn ? 'Recorded Clip' : 'Klip Rekaman'}</span>
+              <div className="flex flex-col gap-3 bg-emerald-800/40 p-5 rounded-3xl border border-emerald-700/50 w-full md:w-72">
+                <div className="flex items-center gap-3">
+                  <button 
+                    onClick={toggleAudio}
+                    className="w-12 h-12 flex items-center justify-center bg-emerald-400 text-emerald-950 rounded-full hover:bg-emerald-300 transition-all shadow-md shrink-0"
+                  >
+                    {isPlaying ? <Pause className="h-6 w-6 fill-current" /> : <Play className="h-6 w-6 fill-current" />}
+                  </button>
+                  <div className="flex flex-col overflow-hidden">
+                    <span className="text-[9px] font-black uppercase text-emerald-400 tracking-widest">{isEn ? 'Input Audio' : 'Audio Input'}</span>
+                    <span className="text-[10px] font-bold text-white truncate">{isEn ? 'Recorded Clip' : 'Klip Rekaman'}</span>
+                  </div>
+                  <div className="ml-auto">
+                    <Volume2 className="h-4 w-4 text-emerald-500 opacity-50" />
+                  </div>
                 </div>
+                
+                <div className="space-y-2">
+                  <div ref={waveformRef} className="w-full h-[60px]"></div>
+                  {!waveformReady && (
+                    <div className="h-[60px] w-full bg-emerald-900/20 rounded-xl flex items-center justify-center">
+                      <div className="w-4 h-4 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin"></div>
+                    </div>
+                  )}
+                </div>
+
                 <audio 
                   ref={audioRef} 
                   src={audioUrl} 

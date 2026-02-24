@@ -4,6 +4,12 @@ This log tracks the major updates and feature implementations for the Nur Al-Qur
 
 ---
 
+## [2026-02-23] - Loading UX & Toast Notifications
+### Added
+- **Subtle Loading Overlay**: A new, refined loading experience with the message "Sedang mencari di Al-Quran..." and smooth animations.
+- **Toast Notifications**: Added a notification system to provide instant feedback when results are found or if an error occurs.
+- **Improved Visual Feedback**: Enhanced the overall search experience with better state transitions.
+
 ## [2026-02-23] - API Reliability & Fallback
 ### Added
 - **Exponential Backoff Retry**: Implemented a robust retry mechanism for Gemini API calls to handle temporary 503 (Service Unavailable) and 429 (Rate Limit) errors.

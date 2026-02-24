@@ -4,6 +4,8 @@ import { motion, AnimatePresence } from 'motion/react';
 import { Search, Library, ArrowLeft, RotateCcw, Info, Moon, Sun, Globe, HelpCircle, MessageSquare, ExternalLink, Github } from 'lucide-react';
 import Header from './components/Header';
 import ResultDisplay from './components/ResultDisplay';
+import Toast, { ToastType } from './components/Toast';
+import LoadingOverlay from './components/LoadingOverlay';
 import { AppState, IdentificationResult, SourceType } from './types';
 import { identifyContent, getDailyWisdom } from './services/geminiService';
 
@@ -29,6 +31,11 @@ const App: React.FC = () => {
   const [tourStep, setTourStep] = useState<number | null>(null);
   const [showAbout, setShowAbout] = useState(false);
   const [showFeedback, setShowFeedback] = useState(false);
+  const [toast, setToast] = useState<{ message: string; type: ToastType; isVisible: boolean }>({
+    message: '',
+    type: 'success',
+    isVisible: false
+  });
   const [feedbackType, setFeedbackType] = useState<'bug' | 'suggestion' | 'other'>('suggestion');
   const [feedbackMessage, setFeedbackMessage] = useState('');
   const [isSubmittingFeedback, setIsSubmittingFeedback] = useState(false);
@@ -66,17 +73,17 @@ const App: React.FC = () => {
     fetchDailyWisdom();
   }, []);
 
-  const fetchDailyWisdom = async () => {
+  const fetchDailyWisdom = async (force = false) => {
     const today = new Date().toISOString().split('T')[0];
     const cached = localStorage.getItem(`nur_daily_wisdom_${today}`);
     
-    if (cached) {
+    if (cached && !force) {
       try { setDailyWisdom(JSON.parse(cached)); return; } catch (e) {}
     }
 
     setIsFetchingDaily(true);
     try {
-      const wisdom = await getDailyWisdom(today);
+      const wisdom = await getDailyWisdom(today, force);
       setDailyWisdom(wisdom);
       localStorage.setItem(`nur_daily_wisdom_${today}`, JSON.stringify(wisdom));
     } catch (err) {
@@ -191,7 +198,19 @@ const App: React.FC = () => {
       // Add timestamp to the result
       const finalResult = { ...result, timestamp: Date.now() };
       setState({ ...state, isAnalyzing: false, result: finalResult });
-    } catch (err: any) { setState({ ...state, isAnalyzing: false, error: err.message }); }
+      setToast({
+        message: isEn ? "Result found successfully!" : "Hasil berhasil ditemukan!",
+        type: 'success',
+        isVisible: true
+      });
+    } catch (err: any) { 
+      setState({ ...state, isAnalyzing: false, error: err.message }); 
+      setToast({
+        message: err.message || (isEn ? "An error occurred." : "Terjadi kesalahan."),
+        type: 'error',
+        isVisible: true
+      });
+    }
   };
 
   const filteredResults = savedResults.filter(r => {
@@ -681,7 +700,7 @@ const App: React.FC = () => {
                     </h3>
                   </div>
                   <button 
-                    onClick={fetchDailyWisdom} 
+                    onClick={() => fetchDailyWisdom(true)} 
                     className="text-[10px] font-black uppercase tracking-widest text-emerald-300 hover:text-emerald-600 transition-colors"
                     disabled={isFetchingDaily}
                   >
@@ -762,21 +781,21 @@ const App: React.FC = () => {
                     title={isEn ? "Adjust auto-scroll speed" : "Sesuaikan kecepatan gulir otomatis"}
                   />
                 </div>
-                <div className="flex flex-col gap-1">
-                  <label className="text-[10px] font-black uppercase tracking-widest opacity-60">{isEn ? 'Highlight' : 'Sorot'}</label>
+                <div className="flex flex-col gap-1 flex-1 min-w-[150px]">
+                  <label className="text-[10px] font-black uppercase tracking-widest opacity-60">{isEn ? 'Highlight Terms' : 'Sorot Kata'}</label>
                   <div className="relative">
                     <input 
                       type="text" 
                       value={highlightTerm} 
                       onChange={(e) => setHighlightTerm(e.target.value)} 
-                      placeholder={isEn ? "Word..." : "Kata..."}
-                      className="text-xs p-1 pr-6 bg-white/50 dark:bg-black/30 border border-emerald-100/20 rounded outline-none w-24"
-                      title={isEn ? "Type a word to highlight in the text" : "Ketik kata untuk disorot dalam teks"}
+                      placeholder={isEn ? "e.g. 'Allah' or 'Mercy'..." : "misal: 'Allah' atau 'Rahman'..."}
+                      className="text-xs p-2 pr-8 bg-white/50 dark:bg-black/30 border border-emerald-100/20 rounded-xl outline-none w-full focus:border-emerald-500 transition-all"
+                      title={isEn ? "Type words to highlight (use spaces for multiple, quotes for phrases)" : "Ketik kata untuk disorot (spasi untuk banyak, kutip untuk frasa)"}
                     />
                     {highlightTerm && (
                       <button 
                         onClick={() => setHighlightTerm('')}
-                        className="absolute right-1 top-1/2 -translate-y-1/2 text-emerald-400 hover:text-emerald-600"
+                        className="absolute right-2 top-1/2 -translate-y-1/2 text-emerald-400 hover:text-emerald-600 p-1"
                         title={isEn ? "Clear highlight" : "Hapus sorotan"}
                       >
                         <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" viewBox="0 0 20 20" fill="currentColor">
@@ -1027,6 +1046,15 @@ const App: React.FC = () => {
           </a>
         </div>
       </footer>
+
+      <LoadingOverlay isVisible={state.isAnalyzing} lang={lang} />
+      
+      <Toast 
+        message={toast.message} 
+        type={toast.type} 
+        isVisible={toast.isVisible} 
+        onClose={() => setToast({ ...toast, isVisible: false })} 
+      />
     </div>
   );
 };

@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { Info, Moon, Sun, HelpCircle, BookOpen, Key } from 'lucide-react';
+import { Info, Moon, Sun, HelpCircle, BookOpen } from 'lucide-react';
 
 interface HeaderProps {
   startTour: () => void;
@@ -9,23 +9,14 @@ interface HeaderProps {
   setLang: (lang: 'en' | 'id') => void;
   darkMode: boolean;
   setDarkMode: (darkMode: boolean) => void;
-  onSelectKey: () => void;
 }
 
-const Header: React.FC<HeaderProps> = ({ startTour, onShowAbout, lang, setLang, darkMode, setDarkMode, onSelectKey }) => {
+const Header: React.FC<HeaderProps> = ({ startTour, onShowAbout, lang, setLang, darkMode, setDarkMode }) => {
   const isEn = lang === 'en';
   
   return (
     <header className="text-center pt-8 pb-16 px-4 relative max-w-4xl mx-auto">
       <div className="flex flex-wrap items-center justify-center md:justify-end gap-3 mb-12 no-print">
-        <button 
-          onClick={onSelectKey}
-          className="p-3 rounded-2xl bg-white dark:bg-emerald-900 border border-emerald-100 dark:border-emerald-800 text-emerald-600 dark:text-emerald-400 shadow-sm hover:shadow-md hover:bg-emerald-50 dark:hover:bg-emerald-800 transition-all"
-          title={isEn ? "Connect your own API Key" : "Hubungkan Kunci API Anda"}
-        >
-          <Key className="h-5 w-5" />
-        </button>
-
         <button 
           onClick={onShowAbout}
           className="p-3 rounded-2xl bg-white dark:bg-emerald-900 border border-emerald-100 dark:border-emerald-800 text-emerald-600 dark:text-emerald-400 shadow-sm hover:shadow-md hover:bg-emerald-50 dark:hover:bg-emerald-800 transition-all"

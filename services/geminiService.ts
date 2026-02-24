@@ -46,7 +46,7 @@ export const identifyContent = async (
   input: string | { data: string; mimeType: string },
   isText: boolean
 ): Promise<IdentificationResult> => {
-  let model = 'gemini-3.1-pro-preview';
+  let model = 'gemini-3-flash-preview';
   
   const responseSchema = {
     type: Type.OBJECT,
@@ -141,10 +141,10 @@ export const identifyContent = async (
         },
       });
     } catch (err: any) {
-      // Fallback to Flash if Pro is failing due to demand
+      // Fallback to Pro if Flash is failing (unlikely but possible)
       if (err.message?.includes("503") || err.message?.includes("UNAVAILABLE")) {
-        console.info("Falling back to gemini-3-flash-preview due to high demand on Pro model.");
-        model = 'gemini-3-flash-preview';
+        console.info("Falling back to gemini-3.1-pro-preview.");
+        model = 'gemini-3.1-pro-preview';
         response = await callGeminiWithRetry({
           model,
           contents,
@@ -174,8 +174,8 @@ export const identifyContent = async (
   }
 };
 
-export const getDailyWisdom = async (date: string): Promise<IdentificationResult> => {
-  let model = 'gemini-3.1-pro-preview';
+export const getDailyWisdom = async (date: string, refresh = false): Promise<IdentificationResult> => {
+  let model = 'gemini-3-flash-preview';
   
   const responseSchema = {
     type: Type.OBJECT,
@@ -197,7 +197,7 @@ export const getDailyWisdom = async (date: string): Promise<IdentificationResult
   };
 
   const systemInstruction = `You are an expert Islamic scholar. 
-    Task: Provide a "Daily Wisdom" from the Al-Quran or Hadith for the date: ${date}.
+    Task: Provide a ${refresh ? 'new and different' : 'curated'} "Daily Wisdom" from the Al-Quran or Hadith for the date: ${date}.
     MANDATORY BILINGUAL REQUIREMENT: 
     - Provide 'translation' in English.
     - Provide 'translationID' in Indonesian (Bahasa Indonesia).
@@ -222,7 +222,7 @@ export const getDailyWisdom = async (date: string): Promise<IdentificationResult
       });
     } catch (err: any) {
       if (err.message?.includes("503") || err.message?.includes("UNAVAILABLE")) {
-        model = 'gemini-3-flash-preview';
+        model = 'gemini-3.1-pro-preview';
         response = await callGeminiWithRetry({
           model,
           contents: "Generate today's wisdom.",
@@ -249,7 +249,7 @@ export const getDailyWisdom = async (date: string): Promise<IdentificationResult
 export const getRelatedContent = async (
   currentResult: IdentificationResult
 ): Promise<RelatedContent[]> => {
-  let model = 'gemini-3.1-pro-preview';
+  let model = 'gemini-3-flash-preview';
   
   const responseSchema = {
     type: Type.ARRAY,
@@ -299,7 +299,7 @@ export const getRelatedContent = async (
       });
     } catch (err: any) {
       if (err.message?.includes("503") || err.message?.includes("UNAVAILABLE")) {
-        model = 'gemini-3-flash-preview';
+        model = 'gemini-3.1-pro-preview';
         response = await callGeminiWithRetry({
           model,
           contents: "Find related verses or hadiths.",
