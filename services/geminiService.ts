@@ -2,13 +2,13 @@
 import { GoogleGenAI, Type } from "@google/genai";
 import { IdentificationResult, RelatedContent } from "../types";
 
-const ai = new GoogleGenAI({ apiKey: import.meta.env.VITE_GEMINI_API_KEY || '' });
+const ai = new GoogleGenAI({ apiKey: import.meta.env.VITE_GEMINI_API_KEY || process.env.API_KEY || '' });
 
 export const identifyContent = async (
   input: string | { data: string; mimeType: string },
   isText: boolean
 ): Promise<IdentificationResult> => {
-  const model = 'gemini-3-pro-preview';
+  const model = 'gemini-3-flash-preview';
   
   const responseSchema = {
     type: Type.OBJECT,
@@ -103,7 +103,8 @@ export const identifyContent = async (
 
     const text = response.text;
     if (!text) {
-      throw new Error("No content generated from Gemini API.");
+      console.error("Empty response from Gemini (identifyContent). Full response:", JSON.stringify(response, null, 2));
+      throw new Error("No content generated from Gemini API (identifyContent). This might be due to safety filters.");
     }
     const result = JSON.parse(text.trim()) as IdentificationResult;
     return result;
@@ -114,7 +115,7 @@ export const identifyContent = async (
 };
 
 export const getDailyWisdom = async (date: string): Promise<IdentificationResult> => {
-  const model = 'gemini-3-pro-preview';
+  const model = 'gemini-3-flash-preview';
   
   const responseSchema = {
     type: Type.OBJECT,
@@ -160,7 +161,8 @@ export const getDailyWisdom = async (date: string): Promise<IdentificationResult
 
     const text = response.text;
     if (!text) {
-      throw new Error("No content generated from Gemini API.");
+      console.error("Empty response from Gemini (getDailyWisdom). Full response:", JSON.stringify(response, null, 2));
+      throw new Error("No content generated from Gemini API (getDailyWisdom). This might be due to safety filters.");
     }
     const result = JSON.parse(text.trim()) as IdentificationResult;
     return result;
@@ -173,7 +175,7 @@ export const getDailyWisdom = async (date: string): Promise<IdentificationResult
 export const getRelatedContent = async (
   currentResult: IdentificationResult
 ): Promise<RelatedContent[]> => {
-  const model = 'gemini-3-pro-preview';
+  const model = 'gemini-3-flash-preview';
   
   const responseSchema = {
     type: Type.ARRAY,
@@ -222,7 +224,8 @@ export const getRelatedContent = async (
 
     const text = response.text;
     if (!text) {
-      throw new Error("No content generated from Gemini API.");
+      console.error("Empty response from Gemini (getRelatedContent). Full response:", JSON.stringify(response, null, 2));
+      throw new Error("No content generated from Gemini API (getRelatedContent). This might be due to safety filters.");
     }
     const result = JSON.parse(text.trim()) as RelatedContent[];
     return result;
