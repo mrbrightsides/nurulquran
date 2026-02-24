@@ -6,7 +6,7 @@ const ai = new GoogleGenAI({ apiKey: import.meta.env.VITE_GEMINI_API_KEY || '' }
 
 const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
-const callGeminiWithRetry = async (params: any, retries = 3, delay = 2000): Promise<any> => {
+const callGeminiWithRetry = async (params: any, retries = 2, delay = 1000): Promise<any> => {
   let lastError;
   for (let i = 0; i < retries; i++) {
     try {
@@ -32,9 +32,11 @@ const callGeminiWithRetry = async (params: any, retries = 3, delay = 2000): Prom
       
       if (is503 || is429 || isEmpty) {
         console.warn(`Gemini API issue (attempt ${i + 1}/${retries}): ${error.message}. Retrying in ${delay}ms...`);
-        await sleep(delay);
-        delay *= 2; // Exponential backoff
-        continue;
+        if (i < retries - 1) {
+          await sleep(delay);
+          delay *= 2; // Exponential backoff
+          continue;
+        }
       }
       throw error; // Don't retry for safety blocks or other fatal errors
     }
@@ -128,37 +130,16 @@ export const identifyContent = async (
       };
 
   try {
-    let response;
-    try {
-      response = await callGeminiWithRetry({
-        model,
-        contents,
-        config: {
-          systemInstruction,
-          responseMimeType: "application/json",
-          responseSchema,
-          temperature: 0.2,
-        },
-      });
-    } catch (err: any) {
-      // Fallback to Pro if Flash is failing (unlikely but possible)
-      if (err.message?.includes("503") || err.message?.includes("UNAVAILABLE")) {
-        console.info("Falling back to gemini-3.1-pro-preview.");
-        model = 'gemini-3.1-pro-preview';
-        response = await callGeminiWithRetry({
-          model,
-          contents,
-          config: {
-            systemInstruction,
-            responseMimeType: "application/json",
-            responseSchema,
-            temperature: 0.2,
-          },
-        });
-      } else {
-        throw err;
-      }
-    }
+    const response = await callGeminiWithRetry({
+      model,
+      contents,
+      config: {
+        systemInstruction,
+        responseMimeType: "application/json",
+        responseSchema,
+        temperature: 0.2,
+      },
+    });
 
     const result = JSON.parse(response.text.trim()) as IdentificationResult;
     return result;
@@ -208,35 +189,16 @@ export const getDailyWisdom = async (date: string, refresh = false): Promise<Ide
     Ensure the translations are high-quality and standard. The content should be inspiring and relevant for a daily reflection.`;
 
   try {
-    let response;
-    try {
-      response = await callGeminiWithRetry({
-        model,
-        contents: "Generate today's wisdom.",
-        config: {
-          systemInstruction,
-          responseMimeType: "application/json",
-          responseSchema,
-          temperature: 0.7,
-        },
-      });
-    } catch (err: any) {
-      if (err.message?.includes("503") || err.message?.includes("UNAVAILABLE")) {
-        model = 'gemini-3.1-pro-preview';
-        response = await callGeminiWithRetry({
-          model,
-          contents: "Generate today's wisdom.",
-          config: {
-            systemInstruction,
-            responseMimeType: "application/json",
-            responseSchema,
-            temperature: 0.7,
-          },
-        });
-      } else {
-        throw err;
-      }
-    }
+    const response = await callGeminiWithRetry({
+      model,
+      contents: "Generate today's wisdom.",
+      config: {
+        systemInstruction,
+        responseMimeType: "application/json",
+        responseSchema,
+        temperature: 0.7,
+      },
+    });
 
     const result = JSON.parse(response.text.trim()) as IdentificationResult;
     return result;
@@ -285,35 +247,16 @@ export const getRelatedContent = async (
     Ensure the translations are high-quality and standard.`;
 
   try {
-    let response;
-    try {
-      response = await callGeminiWithRetry({
-        model,
-        contents: "Find related verses or hadiths.",
-        config: {
-          systemInstruction,
-          responseMimeType: "application/json",
-          responseSchema,
-          temperature: 0.5,
-        },
-      });
-    } catch (err: any) {
-      if (err.message?.includes("503") || err.message?.includes("UNAVAILABLE")) {
-        model = 'gemini-3.1-pro-preview';
-        response = await callGeminiWithRetry({
-          model,
-          contents: "Find related verses or hadiths.",
-          config: {
-            systemInstruction,
-            responseMimeType: "application/json",
-            responseSchema,
-            temperature: 0.5,
-          },
-        });
-      } else {
-        throw err;
-      }
-    }
+    const response = await callGeminiWithRetry({
+      model,
+      contents: "Find related verses or hadiths.",
+      config: {
+        systemInstruction,
+        responseMimeType: "application/json",
+        responseSchema,
+        temperature: 0.5,
+      },
+    });
 
     const result = JSON.parse(response.text.trim()) as RelatedContent[];
     return result;
