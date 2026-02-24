@@ -8,7 +8,7 @@ export const identifyContent = async (
   input: string | { data: string; mimeType: string },
   isText: boolean
 ): Promise<IdentificationResult> => {
-  const model = 'gemini-3-flash-preview';
+  const model = 'gemini-3.1-pro-preview';
   
   const responseSchema = {
     type: Type.OBJECT,
@@ -69,23 +69,25 @@ export const identifyContent = async (
     required: ['type', 'title', 'reference', 'arabicText', 'translation', 'translationID', 'transliteration', 'confidence'],
   };
 
-  const systemInstruction = `You are an expert Islamic scholar. 
-    Task: Identify the source of the input.
+  const systemInstruction = `You are an expert Islamic scholar and educator. 
+    Task: Identify and analyze the source of the input for educational purposes.
     MANDATORY BILINGUAL REQUIREMENT: 
-    - Provide 'translation' in English.
+    - Provide 'translation' in English using public domain or standard scholarly versions.
     - Provide 'translationID' in Indonesian (Bahasa Indonesia).
     - Provide 'context' in English.
     - Provide 'contextID' in Indonesian (Bahasa Indonesia).
     - Provide 'asbabunNuzul' in English (if applicable).
     - Provide 'asbabunNuzulID' in Indonesian (if applicable).
+    
+    If the content is a well-known verse or hadith, focus on providing the correct reference and educational context. 
     Ensure the translations are high-quality and standard for Al-Quran and Hadith in both languages.`;
 
   const contents = isText 
-    ? { parts: [{ text: `Identify this: "${input as string}"` }] }
+    ? { parts: [{ text: `Identify and provide educational context for this Islamic text: "${input as string}"` }] }
     : {
         parts: [
           { inlineData: input as { data: string; mimeType: string } },
-          { text: "Analyze this media and identify the Islamic text mentioned. Provide translations in both English and Indonesian." }
+          { text: "Analyze this media, identify the Islamic text mentioned, and provide educational translations and context in both English and Indonesian." }
         ]
       };
 
@@ -97,14 +99,19 @@ export const identifyContent = async (
         systemInstruction,
         responseMimeType: "application/json",
         responseSchema,
-        temperature: 0.2,
+        temperature: 0.1,
       },
     });
+
+    const candidate = response.candidates?.[0];
+    if (candidate?.finishReason === 'RECITATION') {
+      throw new Error("The content was identified as a protected recitation. Please try a shorter segment or ask for a summary of the verse/hadith.");
+    }
 
     const text = response.text;
     if (!text) {
       console.error("Empty response from Gemini (identifyContent). Full response:", JSON.stringify(response, null, 2));
-      throw new Error("No content generated from Gemini API (identifyContent). This might be due to safety filters.");
+      throw new Error("No content generated from Gemini API (identifyContent). This might be due to safety filters or recitation blocks.");
     }
     const result = JSON.parse(text.trim()) as IdentificationResult;
     return result;
