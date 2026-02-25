@@ -175,6 +175,54 @@ const App: React.FC = () => {
     setExpandedItems(newExpanded);
   };
 
+  const processSelectedFile = (selectedFile: File) => {
+    const isAudio = selectedFile.type.startsWith('audio/');
+    const isVideo = selectedFile.type.startsWith('video/');
+
+    if (!isAudio && !isVideo) {
+      setToast({
+        message: isEn ? "Please upload an audio or video file." : "Silakan unggah file audio atau video.",
+        type: 'error',
+        isVisible: true
+      });
+      return;
+    }
+
+    if (selectedFile.size > 20 * 1024 * 1024) {
+      setToast({
+        message: isEn ? "File size exceeds 20MB limit." : "Ukuran file melebihi batas 20MB.",
+        type: 'error',
+        isVisible: true
+      });
+      return;
+    }
+
+    setFile(selectedFile);
+    setTextInput('');
+    if (audioUrl) {
+      URL.revokeObjectURL(audioUrl);
+      setAudioUrl(null);
+    }
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const selectedFile = e.target.files?.[0];
+    if (selectedFile) processSelectedFile(selectedFile);
+  };
+
+  const readFileAsBase64 = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        const result = reader.result as string;
+        const base64 = result.split(',')[1];
+        resolve(base64);
+      };
+      reader.onerror = (error) => reject(error);
+      reader.readAsDataURL(file);
+    });
+  };
+
   const handleIdentify = async () => {
     if (!textInput.trim() && !file) return;
     setState({ ...state, isAnalyzing: true, error: null });
@@ -185,17 +233,12 @@ const App: React.FC = () => {
         const url = URL.createObjectURL(file);
         setAudioUrl(url);
 
-        const reader = new FileReader();
-        reader.readAsDataURL(file);
-        const base64 = await new Promise<string>((res) => {
-          reader.onload = () => res((reader.result as string).split(',')[1]);
-        });
+        const base64 = await readFileAsBase64(file);
         result = await identifyContent({ data: base64, mimeType: file.type || 'audio/webm' }, false);
       } else {
         result = await identifyContent(textInput, true);
         setHighlightTerm(textInput);
       }
-      // Add timestamp to the result
       const finalResult = { ...result, timestamp: Date.now() };
       setState({ ...state, isAnalyzing: false, result: finalResult });
       setToast({
@@ -578,10 +621,10 @@ const App: React.FC = () => {
                   onDragLeave={() => setIsDragging(false)}
                   onDrop={(e) => {
                     e.preventDefault(); setIsDragging(false);
-                    if (e.dataTransfer.files?.[0]) { setFile(e.dataTransfer.files[0]); setTextInput(''); }
+                    if (e.dataTransfer.files?.[0]) processSelectedFile(e.dataTransfer.files[0]);
                   }}
                 >
-                  <input type="file" onChange={(e) => { if (e.target.files?.[0]) { setFile(e.target.files[0]); setTextInput(''); } }} className="hidden" id="f-up" accept="audio/*,video/*" />
+                  <input type="file" onChange={handleFileChange} className="hidden" id="f-up" accept="audio/*,video/*" />
                   <label htmlFor="f-up" className="cursor-pointer flex flex-col items-center">
                     <p className="text-emerald-900 font-bold text-sm">{file ? file.name : (isEn ? 'Upload Media' : 'Unggah Media')}</p>
                   </label>
