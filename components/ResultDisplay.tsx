@@ -382,15 +382,30 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({
           </div>
 
           <div className="space-y-6">
-            <h3 className="text-sm font-black text-emerald-500 uppercase tracking-[0.2em] flex items-center gap-2">
-              <Link className="h-4 w-4" />
-              {isEn ? 'Related Wisdom' : 'Hikmah Terkait'}
-            </h3>
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-black text-emerald-500 uppercase tracking-[0.2em] flex items-center gap-2">
+                <Link className="h-4 w-4" />
+                {isEn ? 'Related Wisdom' : 'Hikmah Terkait'}
+              </h3>
+              {isFetchingRelated && (
+                <div className="flex items-center gap-2 text-[10px] font-bold text-emerald-400 animate-pulse">
+                  <div className="w-1.5 h-1.5 bg-emerald-400 rounded-full animate-bounce"></div>
+                  {isEn ? 'Finding connections...' : 'Mencari keterkaitan...'}
+                </div>
+              )}
+            </div>
             
             {isFetchingRelated ? (
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 {[1, 2, 3].map(i => (
-                  <div key={i} className="h-32 bg-emerald-50 dark:bg-emerald-900/40 rounded-3xl animate-pulse"></div>
+                  <div key={i} className="bg-emerald-50/50 dark:bg-emerald-900/20 p-5 rounded-3xl border border-emerald-100/20 dark:border-emerald-800/20 space-y-3 animate-pulse">
+                    <div className="h-4 bg-emerald-200/30 dark:bg-emerald-700/30 rounded-full w-3/4 ml-auto"></div>
+                    <div className="h-3 bg-emerald-100/30 dark:bg-emerald-800/30 rounded-full w-full"></div>
+                    <div className="h-3 bg-emerald-100/30 dark:bg-emerald-800/30 rounded-full w-5/6"></div>
+                    <div className="pt-2 border-t border-emerald-100/10 dark:border-emerald-800/10">
+                      <div className="h-2 bg-emerald-200/20 dark:bg-emerald-700/20 rounded-full w-1/3"></div>
+                    </div>
+                  </div>
                 ))}
               </div>
             ) : (
