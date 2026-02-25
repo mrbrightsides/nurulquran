@@ -1,5 +1,5 @@
 
-import { GoogleGenAI, Type } from "@google/genai";
+import { GoogleGenAI, Type, ThinkingLevel } from "@google/genai";
 import { IdentificationResult, RelatedContent } from "../types";
 
 const ai = new GoogleGenAI({ apiKey: import.meta.env.VITE_GEMINI_API_KEY || '' });
@@ -48,7 +48,7 @@ export const identifyContent = async (
   input: string | { data: string; mimeType: string },
   isText: boolean
 ): Promise<IdentificationResult> => {
-  let model = 'gemini-3-flash-preview';
+  let model = 'gemini-flash-lite-latest';
   
   const responseSchema = {
     type: Type.OBJECT,
@@ -138,6 +138,7 @@ export const identifyContent = async (
         responseMimeType: "application/json",
         responseSchema,
         temperature: 0.2,
+        thinkingConfig: { thinkingLevel: ThinkingLevel.LOW },
       },
     });
 
@@ -156,7 +157,7 @@ export const identifyContent = async (
 };
 
 export const getDailyWisdom = async (date: string, refresh = false): Promise<IdentificationResult> => {
-  let model = 'gemini-3-flash-preview';
+  let model = 'gemini-flash-lite-latest';
   
   const responseSchema = {
     type: Type.OBJECT,
@@ -197,6 +198,7 @@ export const getDailyWisdom = async (date: string, refresh = false): Promise<Ide
         responseMimeType: "application/json",
         responseSchema,
         temperature: 0.7,
+        thinkingConfig: { thinkingLevel: ThinkingLevel.LOW },
       },
     });
 
@@ -211,7 +213,7 @@ export const getDailyWisdom = async (date: string, refresh = false): Promise<Ide
 export const getRelatedContent = async (
   currentResult: IdentificationResult
 ): Promise<RelatedContent[]> => {
-  let model = 'gemini-3-flash-preview';
+  let model = 'gemini-flash-lite-latest';
   
   const responseSchema = {
     type: Type.ARRAY,
@@ -255,6 +257,7 @@ export const getRelatedContent = async (
         responseMimeType: "application/json",
         responseSchema,
         temperature: 0.5,
+        thinkingConfig: { thinkingLevel: ThinkingLevel.LOW },
       },
     });
 
