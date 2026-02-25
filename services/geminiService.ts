@@ -138,7 +138,6 @@ export const identifyContent = async (
         responseMimeType: "application/json",
         responseSchema,
         temperature: 0.2,
-        thinkingConfig: { thinkingLevel: ThinkingLevel.LOW },
       },
     });
 
@@ -198,7 +197,6 @@ export const getDailyWisdom = async (date: string, refresh = false): Promise<Ide
         responseMimeType: "application/json",
         responseSchema,
         temperature: 0.7,
-        thinkingConfig: { thinkingLevel: ThinkingLevel.LOW },
       },
     });
 
@@ -257,7 +255,6 @@ export const getRelatedContent = async (
         responseMimeType: "application/json",
         responseSchema,
         temperature: 0.5,
-        thinkingConfig: { thinkingLevel: ThinkingLevel.LOW },
       },
     });
 
