@@ -109,23 +109,19 @@ export const identifyContent = async (
     required: ['type', 'title', 'reference', 'arabicText', 'translation', 'translationID', 'transliteration', 'confidence'],
   };
 
-  const systemInstruction = `You are an expert Islamic scholar. 
-    Task: Identify the source of the input.
-    MANDATORY BILINGUAL REQUIREMENT: 
-    - Provide 'translation' in English.
-    - Provide 'translationID' in Indonesian (Bahasa Indonesia).
-    - Provide 'context' in English.
-    - Provide 'contextID' in Indonesian (Bahasa Indonesia).
-    - Provide 'asbabunNuzul' in English (if applicable).
-    - Provide 'asbabunNuzulID' in Indonesian (if applicable).
-    Ensure the translations are high-quality and standard for Al-Quran and Hadith in both languages.`;
+  const systemInstruction = `Expert Islamic scholar. Identify source of input.
+    BILINGUAL (EN & ID):
+    - translation, translationID
+    - context, contextID
+    - asbabunNuzul, asbabunNuzulID
+    High-quality standard translations only.`;
 
   const contents = isText 
-    ? { parts: [{ text: `Identify this: "${input as string}"` }] }
+    ? { parts: [{ text: input as string }] }
     : {
         parts: [
           { inlineData: input as { data: string; mimeType: string } },
-          { text: "Analyze this media and identify the Islamic text mentioned. Provide translations in both English and Indonesian." }
+          { text: "Identify Islamic text. Bilingual EN/ID." }
         ]
       };
 
@@ -177,16 +173,12 @@ export const getDailyWisdom = async (date: string, refresh = false): Promise<Ide
     required: ['type', 'title', 'reference', 'arabicText', 'translation', 'translationID', 'transliteration', 'confidence'],
   };
 
-  const systemInstruction = `You are an expert Islamic scholar. 
-    Task: Provide a ${refresh ? 'new and different' : 'curated'} "Daily Wisdom" from the Al-Quran or Hadith for the date: ${date}.
-    MANDATORY BILINGUAL REQUIREMENT: 
-    - Provide 'translation' in English.
-    - Provide 'translationID' in Indonesian (Bahasa Indonesia).
-    - Provide 'context' in English.
-    - Provide 'contextID' in Indonesian (Bahasa Indonesia).
-    - Provide 'asbabunNuzul' in English (if applicable).
-    - Provide 'asbabunNuzulID' in Indonesian (if applicable).
-    Ensure the translations are high-quality and standard. The content should be inspiring and relevant for a daily reflection.`;
+  const systemInstruction = `Expert Islamic scholar. Provide ${refresh ? 'new' : 'curated'} "Daily Wisdom" (Quran/Hadith) for ${date}.
+    BILINGUAL (EN & ID):
+    - translation, translationID
+    - context, contextID
+    - asbabunNuzul, asbabunNuzulID
+    Inspiring and relevant.`;
 
   try {
     const response = await callGeminiWithRetry({
@@ -231,20 +223,12 @@ export const getRelatedContent = async (
     }
   };
 
-  const systemInstruction = `You are an expert Islamic scholar. 
-    Task: Provide 3 related verses or hadiths based on the following content:
-    Title: ${currentResult.title}
-    Reference: ${currentResult.reference}
-    Arabic: ${currentResult.arabicText}
-    Translation: ${currentResult.translation}
-    
-    The related content should share similar themes, keywords, or contextual meaning.
-    MANDATORY BILINGUAL REQUIREMENT: 
-    - Provide 'translation' in English.
-    - Provide 'translationID' in Indonesian (Bahasa Indonesia).
-    - Provide 'asbabunNuzul' in English (if applicable).
-    - Provide 'asbabunNuzulID' in Indonesian (if applicable).
-    Ensure the translations are high-quality and standard.`;
+  const systemInstruction = `Expert Islamic scholar. Provide 3 related verses/hadiths.
+    Source: ${currentResult.title} (${currentResult.reference}) - ${currentResult.translation}
+    BILINGUAL (EN & ID):
+    - translation, translationID
+    - asbabunNuzul, asbabunNuzulID
+    Similar themes/keywords.`;
 
   try {
     const response = await callGeminiWithRetry({
