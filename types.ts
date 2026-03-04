@@ -37,6 +37,8 @@ export interface IdentificationResult {
   contextID?: string; // Indonesian context
   asbabunNuzul?: string; // English Asbabun Nuzul
   asbabunNuzulID?: string; // Indonesian Asbabun Nuzul
+  tafsir?: string; // English Tafsir summary
+  tafsirID?: string; // Indonesian Tafsir summary
   confidence: number;
   timestamp: number;
   matchedArabicSegment?: string; 

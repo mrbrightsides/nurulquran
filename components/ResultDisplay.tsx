@@ -370,6 +370,18 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({
             </div>
           )}
 
+          {(isEn ? result.tafsir : result.tafsirID) && (
+            <div className="bg-emerald-50/30 dark:bg-emerald-900/20 p-8 rounded-[2rem] border border-emerald-100 dark:border-emerald-800 shadow-sm space-y-4">
+              <div className="flex items-center gap-2">
+                <BookOpen className="h-4 w-4 text-emerald-500" />
+                <h3 className="text-[9px] font-black text-emerald-500 uppercase tracking-[0.2em]">{isEn ? 'Tafsir Ibn Kathir (Summary)' : 'Tafsir Ibnu Katsir (Ringkasan)'}</h3>
+              </div>
+              <p className="text-emerald-900 dark:text-emerald-50 font-medium leading-relaxed">
+                {highlightText(isEn ? result.tafsir! : result.tafsirID!, highlightTerm)}
+              </p>
+            </div>
+          )}
+
           <div className="bg-white dark:bg-emerald-800/10 p-8 rounded-[2rem] border border-emerald-100 dark:border-emerald-800 shadow-sm space-y-4">
             <h3 className="text-[9px] font-black text-emerald-500 uppercase tracking-[0.2em]">{isEn ? 'My Reflections' : 'Refleksi Saya'}</h3>
             <textarea 

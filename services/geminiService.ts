@@ -97,6 +97,14 @@ export const identifyContent = async (
         type: Type.STRING,
         description: 'Indonesian Asbabun Nuzul (Sebab Turunnya Ayat) if applicable (Bahasa Indonesia)',
       },
+      tafsir: {
+        type: Type.STRING,
+        description: 'English summary of Tafsir Ibn Kathir',
+      },
+      tafsirID: {
+        type: Type.STRING,
+        description: 'Indonesian summary of Tafsir Ibn Kathir (Bahasa Indonesia)',
+      },
       confidence: {
         type: Type.NUMBER,
         description: 'Confidence score (0-1)',
@@ -113,7 +121,8 @@ export const identifyContent = async (
     BILINGUAL (EN & ID):
     - translation, translationID
     - context, contextID
-    - asbabunNuzul, asbabunNuzulID
+    - asbabunNuzul, asbabunNuzulID (MANDATORY if Quran)
+    - tafsir, tafsirID (MANDATORY if Quran, summary of Ibn Kathir)
     High-quality standard translations only.`;
 
   const contents = isText 
