@@ -97,14 +97,6 @@ export const identifyContent = async (
         type: Type.STRING,
         description: 'Indonesian Asbabun Nuzul (Sebab Turunnya Ayat) if applicable (Bahasa Indonesia)',
       },
-      tafsir: {
-        type: Type.STRING,
-        description: 'English summary of Tafsir Ibn Kathir',
-      },
-      tafsirID: {
-        type: Type.STRING,
-        description: 'Indonesian summary of Tafsir Ibn Kathir (Bahasa Indonesia)',
-      },
       confidence: {
         type: Type.NUMBER,
         description: 'Confidence score (0-1)',
@@ -117,20 +109,23 @@ export const identifyContent = async (
     required: ['type', 'title', 'reference', 'arabicText', 'translation', 'translationID', 'transliteration', 'confidence'],
   };
 
-  const systemInstruction = `Expert Islamic scholar. Identify source of input.
-    BILINGUAL (EN & ID):
-    - translation, translationID
-    - context, contextID
-    - asbabunNuzul, asbabunNuzulID (MANDATORY if Quran)
-    - tafsir, tafsirID (MANDATORY if Quran, summary of Ibn Kathir)
-    High-quality standard translations only.`;
+  const systemInstruction = `You are an expert Islamic scholar. 
+    Task: Identify the source of the input.
+    MANDATORY BILINGUAL REQUIREMENT: 
+    - Provide 'translation' in English.
+    - Provide 'translationID' in Indonesian (Bahasa Indonesia).
+    - Provide 'context' in English.
+    - Provide 'contextID' in Indonesian (Bahasa Indonesia).
+    - Provide 'asbabunNuzul' in English (if applicable).
+    - Provide 'asbabunNuzulID' in Indonesian (if applicable).
+    Ensure the translations are high-quality and standard for Al-Quran and Hadith in both languages.`;
 
   const contents = isText 
-    ? { parts: [{ text: input as string }] }
+    ? { parts: [{ text: `Identify this: "${input as string}"` }] }
     : {
         parts: [
           { inlineData: input as { data: string; mimeType: string } },
-          { text: "Identify Islamic text. Bilingual EN/ID." }
+          { text: "Analyze this media and identify the Islamic text mentioned. Provide translations in both English and Indonesian." }
         ]
       };
 
@@ -182,12 +177,16 @@ export const getDailyWisdom = async (date: string, refresh = false): Promise<Ide
     required: ['type', 'title', 'reference', 'arabicText', 'translation', 'translationID', 'transliteration', 'confidence'],
   };
 
-  const systemInstruction = `Expert Islamic scholar. Provide ${refresh ? 'new' : 'curated'} "Daily Wisdom" (Quran/Hadith) for ${date}.
-    BILINGUAL (EN & ID):
-    - translation, translationID
-    - context, contextID
-    - asbabunNuzul, asbabunNuzulID
-    Inspiring and relevant.`;
+  const systemInstruction = `You are an expert Islamic scholar. 
+    Task: Provide a ${refresh ? 'new and different' : 'curated'} "Daily Wisdom" from the Al-Quran or Hadith for the date: ${date}.
+    MANDATORY BILINGUAL REQUIREMENT: 
+    - Provide 'translation' in English.
+    - Provide 'translationID' in Indonesian (Bahasa Indonesia).
+    - Provide 'context' in English.
+    - Provide 'contextID' in Indonesian (Bahasa Indonesia).
+    - Provide 'asbabunNuzul' in English (if applicable).
+    - Provide 'asbabunNuzulID' in Indonesian (if applicable).
+    Ensure the translations are high-quality and standard. The content should be inspiring and relevant for a daily reflection.`;
 
   try {
     const response = await callGeminiWithRetry({
@@ -232,12 +231,20 @@ export const getRelatedContent = async (
     }
   };
 
-  const systemInstruction = `Expert Islamic scholar. Provide 3 related verses/hadiths.
-    Source: ${currentResult.title} (${currentResult.reference}) - ${currentResult.translation}
-    BILINGUAL (EN & ID):
-    - translation, translationID
-    - asbabunNuzul, asbabunNuzulID
-    Similar themes/keywords.`;
+  const systemInstruction = `You are an expert Islamic scholar. 
+    Task: Provide 3 related verses or hadiths based on the following content:
+    Title: ${currentResult.title}
+    Reference: ${currentResult.reference}
+    Arabic: ${currentResult.arabicText}
+    Translation: ${currentResult.translation}
+    
+    The related content should share similar themes, keywords, or contextual meaning.
+    MANDATORY BILINGUAL REQUIREMENT: 
+    - Provide 'translation' in English.
+    - Provide 'translationID' in Indonesian (Bahasa Indonesia).
+    - Provide 'asbabunNuzul' in English (if applicable).
+    - Provide 'asbabunNuzulID' in Indonesian (if applicable).
+    Ensure the translations are high-quality and standard.`;
 
   try {
     const response = await callGeminiWithRetry({

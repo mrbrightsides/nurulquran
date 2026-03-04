@@ -49,7 +49,6 @@ const App: React.FC = () => {
   const [editCategory, setEditCategory] = useState('');
   const [editNote, setEditNote] = useState('');
   const [activeTab, setActiveTab] = useState<'finder' | 'library'>('finder');
-  const [uploadProgress, setUploadProgress] = useState<number | null>(null);
   
   const [audioSampleRate, setAudioSampleRate] = useState<number>(44100);
   const [audioBitRate, setAudioBitRate] = useState<number>(128000);
@@ -182,7 +181,7 @@ const App: React.FC = () => {
 
     if (!isAudio && !isVideo) {
       setToast({
-        message: isEn ? "Invalid file type. Please upload an audio or video file." : "Jenis file tidak valid. Silakan unggah file audio atau video.",
+        message: isEn ? "Please upload an audio or video file." : "Silakan unggah file audio atau video.",
         type: 'error',
         isVisible: true
       });
@@ -211,15 +210,9 @@ const App: React.FC = () => {
     if (selectedFile) processSelectedFile(selectedFile);
   };
 
-  const readFileAsBase64 = (file: File, onProgress?: (progress: number) => void): Promise<string> => {
+  const readFileAsBase64 = (file: File): Promise<string> => {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
-      reader.onprogress = (event) => {
-        if (event.lengthComputable && onProgress) {
-          const progress = Math.round((event.loaded / event.total) * 100);
-          onProgress(progress);
-        }
-      };
       reader.onload = () => {
         const result = reader.result as string;
         const base64 = result.split(',')[1];
@@ -232,24 +225,7 @@ const App: React.FC = () => {
 
   const handleIdentify = async () => {
     if (!textInput.trim() && !file) return;
-    
-    // Final validation check before processing
-    if (file) {
-      const isAudio = file.type.startsWith('audio/');
-      const isVideo = file.type.startsWith('video/');
-      if (!isAudio && !isVideo) {
-        setToast({
-          message: isEn ? "Invalid file type detected. Please upload an audio or video file." : "Jenis file tidak valid terdeteksi. Silakan unggah file audio atau video.",
-          type: 'error',
-          isVisible: true
-        });
-        setFile(null);
-        return;
-      }
-    }
-
     setState({ ...state, isAnalyzing: true, error: null });
-    setUploadProgress(null);
     try {
       let result;
       if (file) {
@@ -257,13 +233,7 @@ const App: React.FC = () => {
         const url = URL.createObjectURL(file);
         setAudioUrl(url);
 
-        setUploadProgress(0);
-        const base64 = await readFileAsBase64(file, (progress) => {
-          setUploadProgress(progress);
-        });
-        // After reading, we can keep progress at 100 or hide it
-        setUploadProgress(100);
-        
+        const base64 = await readFileAsBase64(file);
         result = await identifyContent({ data: base64, mimeType: file.type || 'audio/webm' }, false);
       } else {
         result = await identifyContent(textInput, true);
@@ -271,7 +241,6 @@ const App: React.FC = () => {
       }
       const finalResult = { ...result, timestamp: Date.now() };
       setState({ ...state, isAnalyzing: false, result: finalResult });
-      setUploadProgress(null);
       setToast({
         message: isEn ? "Result found successfully!" : "Hasil berhasil ditemukan!",
         type: 'success',
@@ -279,7 +248,6 @@ const App: React.FC = () => {
       });
     } catch (err: any) { 
       setState({ ...state, isAnalyzing: false, error: err.message }); 
-      setUploadProgress(null);
       setToast({
         message: err.message || (isEn ? "An error occurred." : "Terjadi kesalahan."),
         type: 'error',
@@ -749,22 +717,6 @@ const App: React.FC = () => {
                   </button>
                 </div>
               </div>
-
-              {uploadProgress !== null && (
-                <div className="w-full space-y-2 animate-in fade-in slide-in-from-bottom-2 duration-300">
-                  <div className="flex justify-between text-[10px] font-black uppercase tracking-widest text-emerald-500">
-                    <span>{uploadProgress < 100 ? (isEn ? 'Reading Media...' : 'Membaca Media...') : (isEn ? 'Analyzing...' : 'Menganalisis...')}</span>
-                    <span>{uploadProgress}%</span>
-                  </div>
-                  <div className="w-full h-2 bg-emerald-50 dark:bg-emerald-900/50 rounded-full overflow-hidden">
-                    <motion.div 
-                      initial={{ width: 0 }}
-                      animate={{ width: `${uploadProgress}%` }}
-                      className="h-full bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.5)]"
-                    />
-                  </div>
-                </div>
-              )}
 
               <button
                 onClick={handleIdentify}
