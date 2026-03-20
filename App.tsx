@@ -10,6 +10,7 @@ import StudyCircle from './components/StudyCircle';
 import { AppState, IdentificationResult, SourceType } from './types';
 import { identifyContent, getDailyWisdom } from './services/geminiService';
 import { auth, db, handleFirestoreError, OperationType } from './services/firebase';
+import { cleanObject } from './utils/helpers';
 import { onAuthStateChanged, signInWithPopup, GoogleAuthProvider, signOut, User } from 'firebase/auth';
 import { collection, query, where, onSnapshot, addDoc, deleteDoc, doc, updateDoc, getDocs, writeBatch, serverTimestamp, getDocFromServer, setDoc } from 'firebase/firestore';
 import { getDocFromServer as getDocFromServerTest } from 'firebase/firestore';
@@ -199,7 +200,7 @@ const App: React.FC = () => {
   };
 
   const saveResult = async (result: IdentificationResult) => {
-    const resultWithTimestamp = { ...result, timestamp: result.timestamp || Date.now() };
+    const resultWithTimestamp = cleanObject({ ...result, timestamp: result.timestamp || Date.now() });
     
     if (user) {
       try {
@@ -320,7 +321,7 @@ const App: React.FC = () => {
 
   const handleUpdateSavedResult = async (index: number) => {
     const item = savedResults[index];
-    const updates = { userCategory: editCategory.trim() || null, userNote: editNote.trim() || null };
+    const updates = cleanObject({ userCategory: editCategory.trim() || null, userNote: editNote.trim() || null });
     
     if (user && item.id) {
       try {

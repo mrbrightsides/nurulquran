@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { Users, Send, BookOpen, MessageSquare, LogOut, Share2, User } from 'lucide-react';
 import { IdentificationResult } from '../types';
 import { db, handleFirestoreError, OperationType } from '../services/firebase';
+import { cleanObject } from '../utils/helpers';
 import { 
   collection, 
   query, 
@@ -136,7 +137,8 @@ const StudyCircle: React.FC<StudyCircleProps> = ({ user, isEn, currentResult }) 
     if (currentResult && joined && roomId) {
       try {
         const circleRef = doc(db, 'circles', roomId);
-        await setDoc(circleRef, { activeVerse: currentResult }, { merge: true });
+        const cleanedResult = cleanObject(currentResult);
+        await setDoc(circleRef, { activeVerse: cleanedResult }, { merge: true });
         
         // Also add a system message
         await addDoc(collection(db, 'circles', roomId, 'messages'), {
@@ -146,7 +148,7 @@ const StudyCircle: React.FC<StudyCircleProps> = ({ user, isEn, currentResult }) 
           text: isEn ? `Shared a verse: ${currentResult.title}` : `Membagikan ayat: ${currentResult.title}`,
           timestamp: Date.now(),
           type: 'verse',
-          verseData: currentResult
+          verseData: cleanedResult
         });
       } catch (error) {
         handleFirestoreError(error, OperationType.UPDATE, `circles/${roomId}`);
