@@ -9,7 +9,7 @@ import LoadingOverlay from './components/LoadingOverlay';
 import StudyCircle from './components/StudyCircle';
 import { AppState, IdentificationResult, SourceType } from './types';
 import { identifyContent, getDailyWisdom } from './services/geminiService';
-import { auth, db, handleFirestoreError, OperationType } from './src/services/firebase';
+import { auth, db, handleFirestoreError, OperationType } from './services/firebase';
 import { onAuthStateChanged, signInWithPopup, GoogleAuthProvider, signOut, User } from 'firebase/auth';
 import { collection, query, where, onSnapshot, addDoc, deleteDoc, doc, updateDoc, getDocs, writeBatch, serverTimestamp, getDocFromServer, setDoc } from 'firebase/firestore';
 import { getDocFromServer as getDocFromServerTest } from 'firebase/firestore';

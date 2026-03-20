@@ -3,7 +3,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Users, Send, BookOpen, MessageSquare, LogOut, Share2, User } from 'lucide-react';
 import { IdentificationResult } from '../types';
-import { db, handleFirestoreError, OperationType } from '../src/services/firebase';
+import { db, handleFirestoreError, OperationType } from '../services/firebase';
 import { 
   collection, 
   query, 
