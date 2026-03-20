@@ -9,6 +9,7 @@
         "displayName": { "type": "string" },
         "email": { "type": "string" },
         "photoURL": { "type": "string" },
+        "darkMode": { "type": "boolean" },
         "lastLogin": { "type": "string", "format": "date-time" }
       },
       "required": ["uid", "email"]

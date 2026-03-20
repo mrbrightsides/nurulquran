@@ -9,6 +9,7 @@
 //   - displayName: string (optional) - User's display name
 //   - email: string (required) - User's email address
 //   - photoURL: string (optional) - User's photo URL
+//   - darkMode: boolean (optional) - User's theme preference
 //   - lastLogin: timestamp (optional) - Last login time
 //
 // Collection: saved_results
@@ -106,7 +107,8 @@ service cloud.firestore {
       return hasRequiredFields(['uid', 'email']) &&
              data.uid == request.auth.uid &&
              isValidEmail(data.email) &&
-             (!('photoURL' in data) || isValidUrl(data.photoURL));
+             (!('photoURL' in data) || isValidUrl(data.photoURL)) &&
+             (!('darkMode' in data) || data.darkMode is bool);
     }
 
     function isValidSavedResult(data) {

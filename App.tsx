@@ -12,7 +12,7 @@ import { identifyContent, getDailyWisdom } from './services/geminiService';
 import { auth, db, handleFirestoreError, OperationType } from './services/firebase';
 import { cleanObject } from './utils/helpers';
 import { onAuthStateChanged, signInWithPopup, GoogleAuthProvider, signOut, User } from 'firebase/auth';
-import { collection, query, where, onSnapshot, addDoc, deleteDoc, doc, updateDoc, getDocs, writeBatch, serverTimestamp, getDocFromServer, setDoc } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, addDoc, deleteDoc, doc, updateDoc, getDocs, writeBatch, serverTimestamp, getDocFromServer, setDoc, getDoc } from 'firebase/firestore';
 import { getDocFromServer as getDocFromServerTest } from 'firebase/firestore';
 
 const App: React.FC = () => {
@@ -76,8 +76,21 @@ const App: React.FC = () => {
   const isEn = lang === 'en';
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+    const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
       setUser(currentUser);
+      if (currentUser) {
+        try {
+          const userDoc = await getDoc(doc(db, 'users', currentUser.uid));
+          if (userDoc.exists()) {
+            const data = userDoc.data();
+            if (data.darkMode !== undefined) {
+              setDarkMode(data.darkMode);
+            }
+          }
+        } catch (e) {
+          console.error("Error fetching user settings:", e);
+        }
+      }
       setIsAuthReady(true);
     });
     return () => unsubscribe();
@@ -144,6 +157,7 @@ const App: React.FC = () => {
         displayName: user.displayName,
         email: user.email,
         photoURL: user.photoURL,
+        darkMode: darkMode,
         lastLogin: new Date().toISOString()
       }, { merge: true });
 
@@ -190,7 +204,14 @@ const App: React.FC = () => {
       document.documentElement.classList.remove('dark');
     }
     localStorage.setItem('nur_quran_dark_mode', darkMode.toString());
-  }, [darkMode]);
+    
+    if (user) {
+      updateDoc(doc(db, 'users', user.uid), { darkMode }).catch(e => {
+        // Silently fail if doc doesn't exist yet (will be created on next login/save)
+        // or if it's just a connection issue
+      });
+    }
+  }, [darkMode, user]);
 
   const startTour = () => setTourStep(0);
 
