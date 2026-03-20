@@ -352,7 +352,7 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({
             </div>
           </div>
 
-          {(isEn ? result.context : result.contextID) && (
+          {(isEn ? result.context?.trim() : result.contextID?.trim()) && (
             <div className="bg-emerald-950 text-white p-8 rounded-[2rem] border border-emerald-900 relative overflow-hidden">
               <h3 className="text-[9px] font-black text-emerald-400 uppercase mb-3 tracking-[0.2em]">{isEn ? 'Islamic Insight' : 'Wawasan Islami'}</h3>
               <p className="text-emerald-50 text-md font-medium leading-relaxed relative z-10">
@@ -361,11 +361,23 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({
             </div>
           )}
 
-          {(isEn ? result.asbabunNuzul : result.asbabunNuzulID) && (
+          {(isEn ? result.asbabunNuzul?.trim() : result.asbabunNuzulID?.trim()) && (
             <div className="bg-white dark:bg-emerald-800/10 p-8 rounded-[2rem] border border-emerald-100 dark:border-emerald-800 shadow-sm space-y-4">
               <h3 className="text-[9px] font-black text-emerald-500 uppercase tracking-[0.2em]">{isEn ? 'Asbabun Nuzul / Occasion of Revelation' : 'Asbabun Nuzul / Sebab Turunnya'}</h3>
               <p className="text-emerald-800 dark:text-emerald-200 font-medium leading-relaxed">
                 {highlightText(isEn ? result.asbabunNuzul! : result.asbabunNuzulID!, highlightTerm)}
+              </p>
+            </div>
+          )}
+
+          {result.tafsirIbnuKatsirID && (
+            <div className="bg-emerald-50/30 dark:bg-emerald-900/20 p-8 rounded-[2rem] border border-emerald-100 dark:border-emerald-800 shadow-sm space-y-4">
+              <div className="flex items-center gap-2 mb-2">
+                <BookOpen className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+                <h3 className="text-[9px] font-black text-emerald-600 dark:text-emerald-400 uppercase tracking-[0.2em]">Tafsir Ibnu Katsir</h3>
+              </div>
+              <p className="text-emerald-900 dark:text-emerald-100 font-medium leading-relaxed text-sm">
+                {highlightText(result.tafsirIbnuKatsirID, highlightTerm)}
               </p>
             </div>
           )}
@@ -408,7 +420,7 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({
                   </div>
                 ))}
               </div>
-            ) : (
+            ) : relatedContent.length > 0 ? (
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 {relatedContent.map((item, idx) => (
                   <div 
@@ -427,6 +439,31 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({
                     </div>
                   </div>
                 ))}
+              </div>
+            ) : (
+              <div className="text-center py-8 bg-emerald-50/20 dark:bg-black/20 rounded-3xl border-2 border-dashed border-emerald-100 dark:border-emerald-800">
+                <p className="text-sm font-medium text-emerald-600 dark:text-emerald-400 mb-4">
+                  {isEn ? "No related wisdom found at this moment." : "Tidak ada hikmah terkait yang ditemukan saat ini."}
+                </p>
+                <button 
+                  onClick={() => {
+                    const fetchRelated = async () => {
+                      setIsFetchingRelated(true);
+                      try {
+                        const related = await getRelatedContent(result);
+                        setRelatedContent(related);
+                      } catch (err) {
+                        console.error(err);
+                      } finally {
+                        setIsFetchingRelated(false);
+                      }
+                    };
+                    fetchRelated();
+                  }}
+                  className="px-6 py-2 bg-emerald-700 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-emerald-800 transition-all"
+                >
+                  {isEn ? "Try Again" : "Coba Lagi"}
+                </button>
               </div>
             )}
           </div>

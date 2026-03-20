@@ -1,0 +1,179 @@
+// ===============================================================
+// Assumed Data Model
+// ===============================================================
+//
+// Collection: users
+// Document ID: {userId}
+// Fields:
+//   - uid: string (required) - User's unique ID
+//   - displayName: string (optional) - User's display name
+//   - email: string (required) - User's email address
+//   - photoURL: string (optional) - User's photo URL
+//   - lastLogin: timestamp (optional) - Last login time
+//
+// Collection: saved_results
+// Document ID: {resultId}
+// Fields:
+//   - userId: string (required) - ID of the user who saved the result
+//   - title: string (required) - Title of the verse/hadith
+//   - reference: string (required) - Reference (e.g., Surah:Verse)
+//   - arabicText: string (required) - Original Arabic text
+//   - translation: string (optional) - English translation
+//   - translationID: string (optional) - Indonesian translation
+//   - type: string (required) - "Quran" or "Hadith"
+//   - confidence: number (required) - AI confidence score
+//   - timestamp: number (required) - Time when saved
+//   - userCategory: string (optional) - User-defined category
+//   - userNote: string (optional) - User-defined reflections
+//
+// Collection: circles
+// Document ID: {circleId}
+// Fields:
+//   - id: string (required) - Circle ID (slug)
+//   - name: string (required) - Circle display name
+//   - createdBy: string (required) - UID of the creator
+//   - createdAt: number (required) - Creation timestamp
+//   - activeVerse: map (optional) - Currently shared verse data
+//
+// Collection: circles/{circleId}/messages
+// Document ID: {messageId}
+// Fields:
+//   - circleId: string (required) - ID of the parent circle
+//   - userId: string (required) - UID of the sender
+//   - userName: string (required) - Name of the sender
+//   - userPhoto: string (optional) - Photo URL of the sender
+//   - text: string (optional) - Message text
+//   - timestamp: number (required) - Message timestamp
+//   - type: string (required) - "text" or "verse"
+//   - verseData: map (optional) - Verse data if type is "verse"
+//
+// ===============================================================
+
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ===============================================================
+    // Helper Functions
+    // ===============================================================
+
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function isDocOwner() {
+      return isAuthenticated() && request.auth.uid == resource.data.userId;
+    }
+
+    function uidUnchanged() {
+      return !('userId' in request.resource.data) ||
+        request.resource.data.userId == request.auth.uid;
+    }
+
+    function hasRequiredFields(fields) {
+      return request.resource.data.keys().hasAll(fields);
+    }
+
+    function hasOnlyAllowedFields(fields) {
+      return request.resource.data.keys().hasOnly(fields);
+    }
+
+    function isValidEmail(email) {
+      return email is string &&
+        email.matches("^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$");
+    }
+
+    function isValidUrl(url) {
+      return url is string &&
+        (url.matches("^https://.*") || url.matches("^http://.*"));
+    }
+
+    function isAdmin() {
+      return isAuthenticated() &&
+        (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin' ||
+          (request.auth.token.email == "khudri@binadarma.ac.id" && request.auth.token.email_verified == true));
+    }
+
+    // ===============================================================
+    // Domain Validators
+    // ===============================================================
+
+    function isValidUser(data) {
+      return hasRequiredFields(['uid', 'email']) &&
+             data.uid == request.auth.uid &&
+             isValidEmail(data.email) &&
+             (!('photoURL' in data) || isValidUrl(data.photoURL));
+    }
+
+    function isValidSavedResult(data) {
+      return hasRequiredFields(['userId', 'title', 'reference', 'arabicText', 'type', 'confidence', 'timestamp']) &&
+             data.userId == request.auth.uid &&
+             data.type in ['Quran', 'Hadith', 'Unknown'] &&
+             data.confidence >= 0 && data.confidence <= 1 &&
+             data.title is string && data.title.size() < 200 &&
+             data.arabicText is string && data.arabicText.size() < 5000;
+    }
+
+    function isValidCircle(data) {
+      return hasRequiredFields(['id', 'name', 'createdBy', 'createdAt']) &&
+             data.createdBy == request.auth.uid &&
+             data.name is string && data.name.size() > 0 && data.name.size() < 100;
+    }
+
+    function isValidMessage(data) {
+      return hasRequiredFields(['circleId', 'userId', 'timestamp', 'type']) &&
+             data.userId == request.auth.uid &&
+             data.type in ['text', 'verse'] &&
+             (!('text' in data) || (data.text is string && data.text.size() < 2000));
+    }
+
+    // ===============================================================
+    // Match Rules
+    // ===============================================================
+
+    // User profiles
+    match /users/{userId} {
+      allow read: if isOwner(userId) || isAdmin();
+      allow create: if isOwner(userId) && isValidUser(request.resource.data);
+      allow update: if isOwner(userId) && isValidUser(request.resource.data) && 
+                      request.resource.data.uid == resource.data.uid;
+      allow delete: if isAdmin();
+    }
+
+    // Saved results
+    match /saved_results/{resultId} {
+      allow read: if isAuthenticated() && (resource.data.userId == request.auth.uid || isAdmin());
+      allow create: if isAuthenticated() && isValidSavedResult(request.resource.data);
+      allow update: if isAuthenticated() && isDocOwner() && isValidSavedResult(request.resource.data) &&
+                      request.resource.data.userId == resource.data.userId;
+      allow delete: if isAuthenticated() && (isDocOwner() || isAdmin());
+    }
+
+    // Circles
+    match /circles/{circleId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated() && isValidCircle(request.resource.data);
+      allow update: if isAuthenticated() && (resource.data.createdBy == request.auth.uid || isAdmin()) && 
+                      isValidCircle(request.resource.data) &&
+                      request.resource.data.createdBy == resource.data.createdBy;
+      allow delete: if isAuthenticated() && (resource.data.createdBy == request.auth.uid || isAdmin());
+
+      // Messages subcollection
+      match /messages/{messageId} {
+        allow read: if isAuthenticated();
+        allow create: if isAuthenticated() && isValidMessage(request.resource.data);
+        allow update: if false; // Messages are usually immutable
+        allow delete: if isAuthenticated() && (resource.data.userId == request.auth.uid || isAdmin());
+      }
+    }
+
+    // Default deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

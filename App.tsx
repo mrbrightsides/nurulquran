@@ -1,16 +1,23 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Search, Library, ArrowLeft, RotateCcw, Info, Moon, Sun, Globe, HelpCircle, MessageSquare, ExternalLink, Github, Trash2, Tag, CheckSquare, Square } from 'lucide-react';
+import { Search, Library, ArrowLeft, RotateCcw, Info, Moon, Sun, Globe, HelpCircle, MessageSquare, ExternalLink, Github, Trash2, Tag, CheckSquare, Square, LogIn, LogOut, Users } from 'lucide-react';
 import Header from './components/Header';
 import ResultDisplay from './components/ResultDisplay';
 import Toast, { ToastType } from './components/Toast';
 import LoadingOverlay from './components/LoadingOverlay';
+import StudyCircle from './components/StudyCircle';
 import { AppState, IdentificationResult, SourceType } from './types';
 import { identifyContent, getDailyWisdom } from './services/geminiService';
+import { auth, db, handleFirestoreError, OperationType } from './src/services/firebase';
+import { onAuthStateChanged, signInWithPopup, GoogleAuthProvider, signOut, User } from 'firebase/auth';
+import { collection, query, where, onSnapshot, addDoc, deleteDoc, doc, updateDoc, getDocs, writeBatch, serverTimestamp, getDocFromServer, setDoc } from 'firebase/firestore';
+import { getDocFromServer as getDocFromServerTest } from 'firebase/firestore';
 
 const App: React.FC = () => {
   const [lang, setLang] = useState<'en' | 'id'>('id');
+  const [user, setUser] = useState<User | null>(null);
+  const [isAuthReady, setIsAuthReady] = useState(false);
   const [textInput, setTextInput] = useState('');
   const [file, setFile] = useState<File | null>(null);
   const [isDragging, setIsDragging] = useState(false);
@@ -48,7 +55,7 @@ const App: React.FC = () => {
   const [isFetchingDaily, setIsFetchingDaily] = useState(false);
   const [editCategory, setEditCategory] = useState('');
   const [editNote, setEditNote] = useState('');
-  const [activeTab, setActiveTab] = useState<'finder' | 'library'>('finder');
+  const [activeTab, setActiveTab] = useState<'finder' | 'library' | 'study-circle'>('finder');
   const [selectedIndices, setSelectedIndices] = useState<Set<number>>(new Set());
   const [showBulkCategorize, setShowBulkCategorize] = useState(false);
   const [bulkCategory, setBulkCategory] = useState('');
@@ -68,14 +75,92 @@ const App: React.FC = () => {
   const isEn = lang === 'en';
 
   useEffect(() => {
-    const stored = localStorage.getItem('nur_quran_saved_results');
-    if (stored) try { setSavedResults(JSON.parse(stored)); } catch (e) {}
+    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+      setUser(currentUser);
+      setIsAuthReady(true);
+    });
+    return () => unsubscribe();
+  }, []);
+
+  // Test Firestore connection
+  useEffect(() => {
+    const testConnection = async () => {
+      try {
+        await getDocFromServer(doc(db, 'test', 'connection'));
+      } catch (error) {
+        if (error instanceof Error && error.message.includes('the client is offline')) {
+          console.error("Please check your Firebase configuration.");
+        }
+      }
+    };
+    testConnection();
+  }, []);
+
+  useEffect(() => {
+    if (!isAuthReady) return;
+
+    let unsubscribe: () => void;
+
+    if (user) {
+      // Sync from Firestore
+      const q = query(collection(db, 'saved_results'), where('userId', '==', user.uid));
+      unsubscribe = onSnapshot(q, (snapshot) => {
+        const results = snapshot.docs.map(doc => ({
+          ...doc.data(),
+          id: doc.id,
+        })) as unknown as IdentificationResult[];
+        // Sort by timestamp descending
+        results.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+        setSavedResults(results);
+      }, (error) => {
+        handleFirestoreError(error, OperationType.GET, 'saved_results');
+      });
+    } else {
+      // Load from LocalStorage for guest
+      const stored = localStorage.getItem('nur_quran_saved_results');
+      if (stored) try { setSavedResults(JSON.parse(stored)); } catch (e) {}
+    }
     
     const storedDarkMode = localStorage.getItem('nur_quran_dark_mode');
     if (storedDarkMode === 'true') setDarkMode(true);
 
     fetchDailyWisdom();
-  }, []);
+
+    return () => {
+      if (unsubscribe) unsubscribe();
+    };
+  }, [user, isAuthReady]);
+
+  const signIn = async () => {
+    const provider = new GoogleAuthProvider();
+    try {
+      const result = await signInWithPopup(auth, provider);
+      const user = result.user;
+      
+      // Save user profile to Firestore
+      await setDoc(doc(db, 'users', user.uid), {
+        uid: user.uid,
+        displayName: user.displayName,
+        email: user.email,
+        photoURL: user.photoURL,
+        lastLogin: new Date().toISOString()
+      }, { merge: true });
+
+      setToast({ message: isEn ? "Signed in successfully!" : "Berhasil masuk!", type: 'success', isVisible: true });
+    } catch (error: any) {
+      setToast({ message: error.message, type: 'error', isVisible: true });
+    }
+  };
+
+  const handleSignOut = async () => {
+    try {
+      await signOut(auth);
+      setSavedResults([]); // Clear local state
+      setToast({ message: isEn ? "Signed out." : "Berhasil keluar.", type: 'success', isVisible: true });
+    } catch (error: any) {
+      setToast({ message: error.message, type: 'error', isVisible: true });
+    }
+  };
 
   const fetchDailyWisdom = async (force = false) => {
     const today = new Date().toISOString().split('T')[0];
@@ -113,28 +198,69 @@ const App: React.FC = () => {
     else { setTourStep(null); }
   };
 
-  const saveToLocalStorage = (result: IdentificationResult) => {
+  const saveResult = async (result: IdentificationResult) => {
     const resultWithTimestamp = { ...result, timestamp: result.timestamp || Date.now() };
-    const updated = [resultWithTimestamp, ...savedResults.filter(r => !(r.reference === result.reference && r.title === result.title))];
-    setSavedResults(updated);
-    localStorage.setItem('nur_quran_saved_results', JSON.stringify(updated));
+    
+    if (user) {
+      try {
+        // Check if already exists to avoid duplicates
+        const existing = savedResults.find(r => r.reference === result.reference && r.title === result.title);
+        if (existing && existing.id) {
+          await updateDoc(doc(db, 'saved_results', existing.id), { ...resultWithTimestamp, userId: user.uid });
+        } else {
+          await addDoc(collection(db, 'saved_results'), { ...resultWithTimestamp, userId: user.uid });
+        }
+        setToast({ message: isEn ? "Saved to cloud!" : "Disimpan ke awan!", type: 'success', isVisible: true });
+      } catch (error) {
+        handleFirestoreError(error, OperationType.WRITE, 'saved_results');
+      }
+    } else {
+      const updated = [resultWithTimestamp, ...savedResults.filter(r => !(r.reference === result.reference && r.title === result.title))];
+      setSavedResults(updated);
+      localStorage.setItem('nur_quran_saved_results', JSON.stringify(updated));
+      setToast({ message: isEn ? "Saved locally!" : "Disimpan secara lokal!", type: 'success', isVisible: true });
+    }
   };
 
-  const deleteSavedResult = (index: number) => {
-    const updated = savedResults.filter((_, i) => i !== index);
-    setSavedResults(updated);
-    localStorage.setItem('nur_quran_saved_results', JSON.stringify(updated));
+  const deleteSavedResult = async (index: number) => {
+    const item = savedResults[index];
     
-    // Clear selection if deleted item was selected
+    if (user && item.id) {
+      try {
+        await deleteDoc(doc(db, 'saved_results', item.id));
+      } catch (error) {
+        handleFirestoreError(error, OperationType.DELETE, `saved_results/${item.id}`);
+      }
+    } else {
+      const updated = savedResults.filter((_, i) => i !== index);
+      setSavedResults(updated);
+      localStorage.setItem('nur_quran_saved_results', JSON.stringify(updated));
+    }
+    
+    // Clear selection
     const newSelected = new Set(selectedIndices);
     newSelected.delete(index);
     setSelectedIndices(newSelected);
   };
 
-  const bulkDelete = () => {
-    const updated = savedResults.filter((_, i) => !selectedIndices.has(i));
-    setSavedResults(updated);
-    localStorage.setItem('nur_quran_saved_results', JSON.stringify(updated));
+  const bulkDelete = async () => {
+    if (user) {
+      try {
+        const batch = writeBatch(db);
+        selectedIndices.forEach(index => {
+          const item = savedResults[index];
+          if (item.id) batch.delete(doc(db, 'saved_results', item.id));
+        });
+        await batch.commit();
+      } catch (error) {
+        handleFirestoreError(error, OperationType.DELETE, 'bulk');
+      }
+    } else {
+      const updated = savedResults.filter((_, i) => !selectedIndices.has(i));
+      setSavedResults(updated);
+      localStorage.setItem('nur_quran_saved_results', JSON.stringify(updated));
+    }
+    
     setSelectedIndices(new Set());
     setToast({
       message: isEn ? `Deleted ${selectedIndices.size} items.` : `Dihapus ${selectedIndices.size} item.`,
@@ -143,14 +269,29 @@ const App: React.FC = () => {
     });
   };
 
-  const bulkCategorize = () => {
+  const bulkCategorize = async () => {
     if (!bulkCategory.trim()) return;
-    const updated = [...savedResults];
-    selectedIndices.forEach(index => {
-      updated[index] = { ...updated[index], userCategory: bulkCategory.trim() };
-    });
-    setSavedResults(updated);
-    localStorage.setItem('nur_quran_saved_results', JSON.stringify(updated));
+    
+    if (user) {
+      try {
+        const batch = writeBatch(db);
+        selectedIndices.forEach(index => {
+          const item = savedResults[index];
+          if (item.id) batch.update(doc(db, 'saved_results', item.id), { userCategory: bulkCategory.trim() });
+        });
+        await batch.commit();
+      } catch (error) {
+        handleFirestoreError(error, OperationType.UPDATE, 'bulk');
+      }
+    } else {
+      const updated = [...savedResults];
+      selectedIndices.forEach(index => {
+        updated[index] = { ...updated[index], userCategory: bulkCategory.trim() };
+      });
+      setSavedResults(updated);
+      localStorage.setItem('nur_quran_saved_results', JSON.stringify(updated));
+    }
+
     setSelectedIndices(new Set());
     setShowBulkCategorize(false);
     setBulkCategory('');
@@ -177,11 +318,22 @@ const App: React.FC = () => {
     }
   };
 
-  const handleUpdateSavedResult = (index: number) => {
-    const updated = [...savedResults];
-    updated[index] = { ...updated[index], userCategory: editCategory.trim() || undefined, userNote: editNote.trim() || undefined };
-    setSavedResults(updated);
-    localStorage.setItem('nur_quran_saved_results', JSON.stringify(updated));
+  const handleUpdateSavedResult = async (index: number) => {
+    const item = savedResults[index];
+    const updates = { userCategory: editCategory.trim() || null, userNote: editNote.trim() || null };
+    
+    if (user && item.id) {
+      try {
+        await updateDoc(doc(db, 'saved_results', item.id), updates);
+      } catch (error) {
+        handleFirestoreError(error, OperationType.UPDATE, `saved_results/${item.id}`);
+      }
+    } else {
+      const updated = [...savedResults];
+      updated[index] = { ...updated[index], userCategory: editCategory.trim() || undefined, userNote: editNote.trim() || undefined };
+      setSavedResults(updated);
+      localStorage.setItem('nur_quran_saved_results', JSON.stringify(updated));
+    }
     setEditingIndex(null);
   };
 
@@ -380,11 +532,9 @@ const App: React.FC = () => {
         setLang={setLang} 
         darkMode={darkMode} 
         setDarkMode={setDarkMode} 
-        onSelectKey={async () => {
-          if (window.aistudio) {
-            await window.aistudio.openSelectKey();
-          }
-        }}
+        user={user}
+        onSignIn={signIn}
+        onSignOut={handleSignOut}
       />
 
       <div className="max-w-4xl mx-auto px-4 mb-12 no-print">
@@ -407,6 +557,13 @@ const App: React.FC = () => {
                 {savedResults.length}
               </span>
             )}
+          </button>
+          <button 
+            onClick={() => setActiveTab('study-circle')}
+            className={`flex-1 flex items-center justify-center gap-2 py-4 rounded-2xl text-sm font-black uppercase tracking-widest transition-all ${activeTab === 'study-circle' ? 'bg-emerald-700 text-white shadow-lg' : 'text-emerald-400 hover:text-emerald-600'}`}
+          >
+            <Users className="h-5 w-5" />
+            <span className="hidden sm:inline">{isEn ? 'Study Circle' : 'Lingkaran Studi'}</span>
           </button>
         </div>
       </div>
@@ -998,7 +1155,7 @@ const App: React.FC = () => {
             </div>
             <ResultDisplay 
               result={state.result} 
-              onSave={saveToLocalStorage} 
+              onSave={saveResult} 
               lang={lang} 
               arabicFontSize={arabicFontSize}
               translationFontSize={translationFontSize}
@@ -1218,6 +1375,17 @@ const App: React.FC = () => {
             >
               {isEn ? "Explore Now" : "Jelajahi Sekarang"}
             </button>
+          </motion.div>
+        )}
+
+        {activeTab === 'study-circle' && (
+          <motion.div 
+            key="study-circle"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -20 }}
+          >
+            <StudyCircle user={user} isEn={isEn} currentResult={state.result || undefined} />
           </motion.div>
         )}
         </AnimatePresence>

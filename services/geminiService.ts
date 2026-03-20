@@ -17,13 +17,25 @@ const callGeminiWithRetry = async (params: any, retries = 2, delay = 1000): Prom
         return response;
       }
       
-      // Check for safety blocks
       const candidate = response.candidates?.[0];
-      if (candidate?.finishReason === 'SAFETY') {
-        throw new Error("AI response blocked by safety filters. Please try a different query.");
+      const finishReason = candidate?.finishReason;
+      
+      console.warn(`Gemini API returned empty text. Finish Reason: ${finishReason}. Response:`, JSON.stringify(response, null, 2));
+      
+      // Check for safety blocks
+      if (finishReason === 'SAFETY') {
+        throw new Error("AI response blocked by safety filters. This can happen with sensitive topics. Please try rephrasing your query.");
       }
       
-      throw new Error("Empty response from AI");
+      if (finishReason === 'RECITATION') {
+        throw new Error("AI response blocked due to recitation detection. Please try a different query.");
+      }
+
+      if (finishReason === 'OTHER') {
+        throw new Error("AI response blocked for an unknown reason. Please try again.");
+      }
+      
+      throw new Error(`Empty response from AI (Finish Reason: ${finishReason || 'UNKNOWN'})`);
     } catch (error: any) {
       lastError = error;
       const is503 = error.message?.includes("503") || error.message?.includes("UNAVAILABLE");
@@ -48,7 +60,7 @@ export const identifyContent = async (
   input: string | { data: string; mimeType: string },
   isText: boolean
 ): Promise<IdentificationResult> => {
-  let model = 'gemini-flash-lite-latest';
+  let model = 'gemini-3.1-pro-preview';
   
   const responseSchema = {
     type: Type.OBJECT,
@@ -97,6 +109,10 @@ export const identifyContent = async (
         type: Type.STRING,
         description: 'Indonesian Asbabun Nuzul (Sebab Turunnya Ayat) if applicable (Bahasa Indonesia)',
       },
+      tafsirIbnuKatsirID: {
+        type: Type.STRING,
+        description: 'Indonesian Tafsir Ibnu Katsir (Bahasa Indonesia)',
+      },
       confidence: {
         type: Type.NUMBER,
         description: 'Confidence score (0-1)',
@@ -109,15 +125,20 @@ export const identifyContent = async (
     required: ['type', 'title', 'reference', 'arabicText', 'translation', 'translationID', 'transliteration', 'confidence'],
   };
 
-  const systemInstruction = `You are an expert Islamic scholar. 
-    Task: Identify the source of the input.
+  const systemInstruction = `You are an expert Islamic scholar and mufassir. 
+    Task: Identify the source of the input (Quranic verse or Hadith).
+    
     MANDATORY BILINGUAL REQUIREMENT: 
     - Provide 'translation' in English.
     - Provide 'translationID' in Indonesian (Bahasa Indonesia).
-    - Provide 'context' in English.
+    - Provide 'context' in English (General context/insight).
     - Provide 'contextID' in Indonesian (Bahasa Indonesia).
-    - Provide 'asbabunNuzul' in English (if applicable).
-    - Provide 'asbabunNuzulID' in Indonesian (if applicable).
+    - Provide 'asbabunNuzul' in English. If it's a Quranic verse, search for its specific occasion of revelation (Asbabun Nuzul). If it's a Hadith, provide the 'Sababul Wurud' (reason for the Hadith).
+    - Provide 'asbabunNuzulID' in Indonesian (Bahasa Indonesia).
+    - Provide 'tafsirIbnuKatsirID' in Indonesian (Bahasa Indonesia) specifically from the classical Tafsir Ibnu Katsir.
+    
+    CRITICAL: For Quranic verses, you MUST provide 'asbabunNuzul' and 'asbabunNuzulID' if they exist in standard Islamic scholarship (e.g., Wahidi, Suyuti). Do not skip this if the verse has a known historical context.
+    
     Ensure the translations are high-quality and standard for Al-Quran and Hadith in both languages.`;
 
   const contents = isText 
@@ -141,7 +162,10 @@ export const identifyContent = async (
       },
     });
 
-    const result = JSON.parse(response.text.trim()) as IdentificationResult;
+    const text = response.text.trim();
+    if (!text) throw new Error("Empty response text");
+
+    const result = JSON.parse(text) as IdentificationResult;
     return result;
   } catch (error: any) {
     console.error("Gemini API Error:", error);
@@ -156,7 +180,7 @@ export const identifyContent = async (
 };
 
 export const getDailyWisdom = async (date: string, refresh = false): Promise<IdentificationResult> => {
-  let model = 'gemini-flash-lite-latest';
+  let model = 'gemini-3.1-pro-preview';
   
   const responseSchema = {
     type: Type.OBJECT,
@@ -172,26 +196,32 @@ export const getDailyWisdom = async (date: string, refresh = false): Promise<Ide
       contextID: { type: Type.STRING },
       asbabunNuzul: { type: Type.STRING },
       asbabunNuzulID: { type: Type.STRING },
+      tafsirIbnuKatsirID: { type: Type.STRING },
       confidence: { type: Type.NUMBER },
     },
     required: ['type', 'title', 'reference', 'arabicText', 'translation', 'translationID', 'transliteration', 'confidence'],
   };
 
-  const systemInstruction = `You are an expert Islamic scholar. 
+  const systemInstruction = `You are an expert Islamic scholar and mufassir. 
     Task: Provide a ${refresh ? 'new and different' : 'curated'} "Daily Wisdom" from the Al-Quran or Hadith for the date: ${date}.
+    
     MANDATORY BILINGUAL REQUIREMENT: 
     - Provide 'translation' in English.
     - Provide 'translationID' in Indonesian (Bahasa Indonesia).
-    - Provide 'context' in English.
+    - Provide 'context' in English (General context/insight).
     - Provide 'contextID' in Indonesian (Bahasa Indonesia).
-    - Provide 'asbabunNuzul' in English (if applicable).
-    - Provide 'asbabunNuzulID' in Indonesian (if applicable).
+    - Provide 'asbabunNuzul' in English (Occasion of revelation for Quran or Sababul Wurud for Hadith).
+    - Provide 'asbabunNuzulID' in Indonesian (Bahasa Indonesia).
+    - Provide 'tafsirIbnuKatsirID' in Indonesian (Bahasa Indonesia) specifically from the classical Tafsir Ibnu Katsir.
+    
     Ensure the translations are high-quality and standard. The content should be inspiring and relevant for a daily reflection.`;
 
   try {
     const response = await callGeminiWithRetry({
       model,
-      contents: "Generate today's wisdom.",
+      contents: {
+        parts: [{ text: `Generate a daily wisdom from Al-Quran or Hadith for the date: ${date}. ${refresh ? 'Make it different from previous ones.' : ''}` }]
+      },
       config: {
         systemInstruction,
         responseMimeType: "application/json",
@@ -200,7 +230,10 @@ export const getDailyWisdom = async (date: string, refresh = false): Promise<Ide
       },
     });
 
-    const result = JSON.parse(response.text.trim()) as IdentificationResult;
+    const text = response.text.trim();
+    if (!text) throw new Error("Empty response text");
+
+    const result = JSON.parse(text) as IdentificationResult;
     return result;
   } catch (error: any) {
     console.error("Gemini Daily Wisdom Error:", error);
@@ -211,7 +244,7 @@ export const getDailyWisdom = async (date: string, refresh = false): Promise<Ide
 export const getRelatedContent = async (
   currentResult: IdentificationResult
 ): Promise<RelatedContent[]> => {
-  let model = 'gemini-flash-lite-latest';
+  let model = 'gemini-3.1-pro-preview';
   
   const responseSchema = {
     type: Type.ARRAY,
@@ -226,12 +259,13 @@ export const getRelatedContent = async (
         transliteration: { type: Type.STRING },
         asbabunNuzul: { type: Type.STRING },
         asbabunNuzulID: { type: Type.STRING },
+        tafsirIbnuKatsirID: { type: Type.STRING },
       },
       required: ['title', 'reference', 'arabicText', 'translation', 'translationID', 'transliteration'],
     }
   };
 
-  const systemInstruction = `You are an expert Islamic scholar. 
+  const systemInstruction = `You are an expert Islamic scholar and mufassir. 
     Task: Provide 3 related verses or hadiths based on the following content:
     Title: ${currentResult.title}
     Reference: ${currentResult.reference}
@@ -242,23 +276,38 @@ export const getRelatedContent = async (
     MANDATORY BILINGUAL REQUIREMENT: 
     - Provide 'translation' in English.
     - Provide 'translationID' in Indonesian (Bahasa Indonesia).
-    - Provide 'asbabunNuzul' in English (if applicable).
-    - Provide 'asbabunNuzulID' in Indonesian (if applicable).
-    Ensure the translations are high-quality and standard.`;
+    - Provide 'asbabunNuzul' in English (Occasion of revelation for Quran or Sababul Wurud for Hadith).
+    - Provide 'asbabunNuzulID' in Indonesian (Bahasa Indonesia).
+    - Provide 'tafsirIbnuKatsirID' in Indonesian (Bahasa Indonesia) specifically from the classical Tafsir Ibnu Katsir.
+    
+    Ensure the connections are meaningful and scholarly.`;
 
   try {
     const response = await callGeminiWithRetry({
       model,
-      contents: "Find related verses or hadiths.",
+      contents: {
+        parts: [{ 
+          text: `Find 3 related verses or hadiths for the following content. Ensure they are relevant and provide meaningful connections.
+          
+          Content to match:
+          Title: ${currentResult.title}
+          Reference: ${currentResult.reference}
+          Arabic: ${currentResult.arabicText}
+          Translation: ${currentResult.translation}` 
+        }]
+      },
       config: {
         systemInstruction,
         responseMimeType: "application/json",
         responseSchema,
-        temperature: 0.5,
+        temperature: 0.7, // Slightly higher temperature for more variety in related content
       },
     });
 
-    const result = JSON.parse(response.text.trim()) as RelatedContent[];
+    const text = response.text.trim();
+    if (!text) throw new Error("Empty response text");
+    
+    const result = JSON.parse(text) as RelatedContent[];
     return result;
   } catch (error: any) {
     console.error("Gemini Related Content Error:", error);

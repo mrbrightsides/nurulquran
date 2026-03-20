@@ -1,6 +1,7 @@
 
 import React from 'react';
-import { Info, Moon, Sun, HelpCircle, BookOpen } from 'lucide-react';
+import { Info, Moon, Sun, HelpCircle, BookOpen, LogIn, LogOut, Key } from 'lucide-react';
+import { User } from 'firebase/auth';
 
 interface HeaderProps {
   startTour: () => void;
@@ -9,9 +10,22 @@ interface HeaderProps {
   setLang: (lang: 'en' | 'id') => void;
   darkMode: boolean;
   setDarkMode: (darkMode: boolean) => void;
+  user: User | null;
+  onSignIn: () => void;
+  onSignOut: () => void;
 }
 
-const Header: React.FC<HeaderProps> = ({ startTour, onShowAbout, lang, setLang, darkMode, setDarkMode }) => {
+const Header: React.FC<HeaderProps> = ({ 
+  startTour, 
+  onShowAbout, 
+  lang, 
+  setLang, 
+  darkMode, 
+  setDarkMode,
+  user,
+  onSignIn,
+  onSignOut
+}) => {
   const isEn = lang === 'en';
   
   return (
@@ -24,6 +38,34 @@ const Header: React.FC<HeaderProps> = ({ startTour, onShowAbout, lang, setLang, 
         >
           <Info className="h-5 w-5" />
         </button>
+
+        {user ? (
+          <div className="flex items-center gap-2 bg-white dark:bg-emerald-900 border border-emerald-100 dark:border-emerald-800 p-1 rounded-2xl shadow-sm">
+            {user.photoURL && (
+              <img 
+                src={user.photoURL} 
+                alt={user.displayName || ''} 
+                className="w-8 h-8 rounded-xl border border-emerald-100"
+                referrerPolicy="no-referrer"
+              />
+            )}
+            <button 
+              onClick={onSignOut}
+              className="p-2 rounded-xl text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-all"
+              title={isEn ? "Sign Out" : "Keluar"}
+            >
+              <LogOut className="h-5 w-5" />
+            </button>
+          </div>
+        ) : (
+          <button 
+            onClick={onSignIn}
+            className="flex items-center gap-2 px-6 py-3 rounded-2xl bg-emerald-700 text-white shadow-lg shadow-emerald-900/20 hover:bg-emerald-800 transition-all text-[10px] font-black uppercase tracking-widest"
+          >
+            <LogIn className="h-4 w-4" />
+            <span>{isEn ? "Sign In" : "Masuk"}</span>
+          </button>
+        )}
 
         <button 
           onClick={() => setDarkMode(!darkMode)}
