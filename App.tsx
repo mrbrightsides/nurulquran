@@ -1,7 +1,7 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Search, Library, ArrowLeft, RotateCcw, Info, Moon, Sun, Globe, HelpCircle, MessageSquare, ExternalLink, Github } from 'lucide-react';
+import { Search, Library, ArrowLeft, RotateCcw, Info, Moon, Sun, Globe, HelpCircle, MessageSquare, ExternalLink, Github, Trash2, Tag, CheckSquare, Square } from 'lucide-react';
 import Header from './components/Header';
 import ResultDisplay from './components/ResultDisplay';
 import Toast, { ToastType } from './components/Toast';
@@ -49,6 +49,10 @@ const App: React.FC = () => {
   const [editCategory, setEditCategory] = useState('');
   const [editNote, setEditNote] = useState('');
   const [activeTab, setActiveTab] = useState<'finder' | 'library'>('finder');
+  const [selectedIndices, setSelectedIndices] = useState<Set<number>>(new Set());
+  const [showBulkCategorize, setShowBulkCategorize] = useState(false);
+  const [bulkCategory, setBulkCategory] = useState('');
+  const [uploadProgress, setUploadProgress] = useState<number | null>(null);
   
   const [audioSampleRate, setAudioSampleRate] = useState<number>(44100);
   const [audioBitRate, setAudioBitRate] = useState<number>(128000);
@@ -120,6 +124,57 @@ const App: React.FC = () => {
     const updated = savedResults.filter((_, i) => i !== index);
     setSavedResults(updated);
     localStorage.setItem('nur_quran_saved_results', JSON.stringify(updated));
+    
+    // Clear selection if deleted item was selected
+    const newSelected = new Set(selectedIndices);
+    newSelected.delete(index);
+    setSelectedIndices(newSelected);
+  };
+
+  const bulkDelete = () => {
+    const updated = savedResults.filter((_, i) => !selectedIndices.has(i));
+    setSavedResults(updated);
+    localStorage.setItem('nur_quran_saved_results', JSON.stringify(updated));
+    setSelectedIndices(new Set());
+    setToast({
+      message: isEn ? `Deleted ${selectedIndices.size} items.` : `Dihapus ${selectedIndices.size} item.`,
+      type: 'success',
+      isVisible: true
+    });
+  };
+
+  const bulkCategorize = () => {
+    if (!bulkCategory.trim()) return;
+    const updated = [...savedResults];
+    selectedIndices.forEach(index => {
+      updated[index] = { ...updated[index], userCategory: bulkCategory.trim() };
+    });
+    setSavedResults(updated);
+    localStorage.setItem('nur_quran_saved_results', JSON.stringify(updated));
+    setSelectedIndices(new Set());
+    setShowBulkCategorize(false);
+    setBulkCategory('');
+    setToast({
+      message: isEn ? `Categorized ${selectedIndices.size} items.` : `Dikategorikan ${selectedIndices.size} item.`,
+      type: 'success',
+      isVisible: true
+    });
+  };
+
+  const toggleSelect = (index: number) => {
+    const newSelected = new Set(selectedIndices);
+    if (newSelected.has(index)) newSelected.delete(index);
+    else newSelected.add(index);
+    setSelectedIndices(newSelected);
+  };
+
+  const toggleSelectAll = () => {
+    if (selectedIndices.size === filteredResults.length) {
+      setSelectedIndices(new Set());
+    } else {
+      const allIndices = new Set(filteredResults.map(r => savedResults.indexOf(r)));
+      setSelectedIndices(allIndices);
+    }
   };
 
   const handleUpdateSavedResult = (index: number) => {
@@ -181,7 +236,7 @@ const App: React.FC = () => {
 
     if (!isAudio && !isVideo) {
       setToast({
-        message: isEn ? "Please upload an audio or video file." : "Silakan unggah file audio atau video.",
+        message: isEn ? "Invalid file type. Please upload an audio or video file." : "Jenis file tidak valid. Silakan unggah file audio atau video.",
         type: 'error',
         isVisible: true
       });
@@ -210,9 +265,15 @@ const App: React.FC = () => {
     if (selectedFile) processSelectedFile(selectedFile);
   };
 
-  const readFileAsBase64 = (file: File): Promise<string> => {
+  const readFileAsBase64 = (file: File, onProgress?: (progress: number) => void): Promise<string> => {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
+      reader.onprogress = (event) => {
+        if (event.lengthComputable && onProgress) {
+          const progress = Math.round((event.loaded / event.total) * 100);
+          onProgress(progress);
+        }
+      };
       reader.onload = () => {
         const result = reader.result as string;
         const base64 = result.split(',')[1];
@@ -225,7 +286,24 @@ const App: React.FC = () => {
 
   const handleIdentify = async () => {
     if (!textInput.trim() && !file) return;
+    
+    // Final validation check before processing
+    if (file) {
+      const isAudio = file.type.startsWith('audio/');
+      const isVideo = file.type.startsWith('video/');
+      if (!isAudio && !isVideo) {
+        setToast({
+          message: isEn ? "Invalid file type detected. Please upload an audio or video file." : "Jenis file tidak valid terdeteksi. Silakan unggah file audio atau video.",
+          type: 'error',
+          isVisible: true
+        });
+        setFile(null);
+        return;
+      }
+    }
+
     setState({ ...state, isAnalyzing: true, error: null });
+    setUploadProgress(null);
     try {
       let result;
       if (file) {
@@ -233,7 +311,13 @@ const App: React.FC = () => {
         const url = URL.createObjectURL(file);
         setAudioUrl(url);
 
-        const base64 = await readFileAsBase64(file);
+        setUploadProgress(0);
+        const base64 = await readFileAsBase64(file, (progress) => {
+          setUploadProgress(progress);
+        });
+        // After reading, we can keep progress at 100 or hide it
+        setUploadProgress(100);
+        
         result = await identifyContent({ data: base64, mimeType: file.type || 'audio/webm' }, false);
       } else {
         result = await identifyContent(textInput, true);
@@ -241,6 +325,7 @@ const App: React.FC = () => {
       }
       const finalResult = { ...result, timestamp: Date.now() };
       setState({ ...state, isAnalyzing: false, result: finalResult });
+      setUploadProgress(null);
       setToast({
         message: isEn ? "Result found successfully!" : "Hasil berhasil ditemukan!",
         type: 'success',
@@ -248,6 +333,7 @@ const App: React.FC = () => {
       });
     } catch (err: any) { 
       setState({ ...state, isAnalyzing: false, error: err.message }); 
+      setUploadProgress(null);
       setToast({
         message: err.message || (isEn ? "An error occurred." : "Terjadi kesalahan."),
         type: 'error',
@@ -591,6 +677,50 @@ const App: React.FC = () => {
           </motion.div>
         )}
 
+        {showBulkCategorize && (
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
+          >
+            <motion.div 
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              className="bg-white dark:bg-emerald-900 p-8 rounded-3xl shadow-2xl max-w-sm w-full border-2 border-emerald-100 dark:border-emerald-800"
+            >
+              <h3 className="text-2xl font-bold text-emerald-900 dark:text-emerald-50 mb-4">
+                {isEn ? "Bulk Categorize" : "Kategorikan Masal"}
+              </h3>
+              <p className="text-emerald-700 dark:text-emerald-300 mb-6 text-sm font-medium">
+                {isEn ? `Assign a category to ${selectedIndices.size} selected items.` : `Berikan kategori ke ${selectedIndices.size} item terpilih.`}
+              </p>
+              <input 
+                type="text" 
+                value={bulkCategory} 
+                onChange={(e) => setBulkCategory(e.target.value)} 
+                placeholder={isEn ? "Enter category name..." : "Masukkan nama kategori..."}
+                className="w-full p-4 rounded-2xl border-2 border-emerald-50 dark:border-emerald-800 bg-emerald-50/10 dark:bg-black/20 text-emerald-900 dark:text-white outline-none focus:border-emerald-500 transition-all mb-6"
+              />
+              <div className="flex gap-4">
+                <button 
+                  onClick={bulkCategorize} 
+                  className="flex-1 py-4 bg-emerald-700 text-white rounded-2xl font-bold hover:bg-emerald-800 transition-colors"
+                >
+                  {isEn ? "Apply" : "Terapkan"}
+                </button>
+                <button 
+                  onClick={() => setShowBulkCategorize(false)} 
+                  className="flex-1 py-4 bg-emerald-100 dark:bg-emerald-800 text-emerald-700 dark:text-emerald-300 rounded-2xl font-bold hover:bg-emerald-200 dark:hover:bg-emerald-700 transition-colors"
+                >
+                  {isEn ? "Cancel" : "Batal"}
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+
         </AnimatePresence>
 
         <AnimatePresence mode="wait">
@@ -717,6 +847,22 @@ const App: React.FC = () => {
                   </button>
                 </div>
               </div>
+
+              {uploadProgress !== null && (
+                <div className="w-full space-y-2 animate-in fade-in slide-in-from-bottom-2 duration-300">
+                  <div className="flex justify-between text-[10px] font-black uppercase tracking-widest text-emerald-500">
+                    <span>{uploadProgress < 100 ? (isEn ? 'Reading Media...' : 'Membaca Media...') : (isEn ? 'Analyzing...' : 'Menganalisis...')}</span>
+                    <span>{uploadProgress}%</span>
+                  </div>
+                  <div className="w-full h-2 bg-emerald-50 dark:bg-emerald-900/50 rounded-full overflow-hidden">
+                    <motion.div 
+                      initial={{ width: 0 }}
+                      animate={{ width: `${uploadProgress}%` }}
+                      className="h-full bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.5)]"
+                    />
+                  </div>
+                </div>
+              )}
 
               <button
                 onClick={handleIdentify}
@@ -885,10 +1031,21 @@ const App: React.FC = () => {
           >
             <div className="flex flex-col space-y-6 mb-10">
               <div className="flex flex-wrap items-center justify-between gap-4">
-                <h3 className="text-2xl font-bold text-emerald-950 dark:text-emerald-50 flex items-center gap-3">
-                  <div className="w-10 h-10 bg-emerald-700 rounded-xl flex items-center justify-center text-white">📖</div>
-                  {isEn ? 'Library' : 'Perpustakaan'}
-                </h3>
+                <div className="flex items-center gap-4">
+                  <h3 className="text-2xl font-bold text-emerald-950 dark:text-emerald-50 flex items-center gap-3">
+                    <div className="w-10 h-10 bg-emerald-700 rounded-xl flex items-center justify-center text-white">📖</div>
+                    {isEn ? 'Library' : 'Perpustakaan'}
+                  </h3>
+                  {filteredResults.length > 0 && (
+                    <button 
+                      onClick={toggleSelectAll}
+                      className="flex items-center gap-2 px-4 py-2 bg-emerald-100 dark:bg-emerald-900 text-emerald-700 dark:text-emerald-300 rounded-xl text-xs font-bold transition-all hover:bg-emerald-200 dark:hover:bg-emerald-800"
+                    >
+                      {selectedIndices.size === filteredResults.length ? <CheckSquare className="h-4 w-4" /> : <Square className="h-4 w-4" />}
+                      {selectedIndices.size === filteredResults.length ? (isEn ? 'Deselect All' : 'Batal Pilih Semua') : (isEn ? 'Select All' : 'Pilih Semua')}
+                    </button>
+                  )}
+                </div>
                 
                 <div className="flex flex-wrap items-center gap-3">
                    <div className="flex flex-col gap-1">
@@ -964,10 +1121,18 @@ const App: React.FC = () => {
                     : translation;
 
                   return (
-                    <div key={idx} className="bg-white dark:bg-emerald-900/40 p-8 rounded-[2rem] border border-emerald-100 dark:border-emerald-800 shadow-sm relative group transition-all hover:shadow-md">
-                      <div className="absolute top-6 right-6 flex gap-3 opacity-0 group-hover:opacity-100 transition-all">
-                        <button onClick={() => startEditing(actualIdx)} className="text-emerald-600 dark:text-emerald-400 font-bold text-xs hover:underline">{isEn ? 'Edit' : 'Ubah'}</button>
-                        <button onClick={() => setDeleteConfirmIndex(actualIdx)} className="text-red-500 font-bold text-xs hover:underline">{isEn ? 'Delete' : 'Hapus'}</button>
+                    <div key={idx} className={`bg-white dark:bg-emerald-900/40 p-8 rounded-[2rem] border transition-all hover:shadow-md relative group ${selectedIndices.has(actualIdx) ? 'border-emerald-500 ring-2 ring-emerald-500/20' : 'border-emerald-100 dark:border-emerald-800 shadow-sm'}`}>
+                      <div className="absolute top-6 right-6 flex items-center gap-3">
+                        <div className="flex gap-3 opacity-0 group-hover:opacity-100 transition-all">
+                          <button onClick={() => startEditing(actualIdx)} className="text-emerald-600 dark:text-emerald-400 font-bold text-xs hover:underline">{isEn ? 'Edit' : 'Ubah'}</button>
+                          <button onClick={() => setDeleteConfirmIndex(actualIdx)} className="text-red-500 font-bold text-xs hover:underline">{isEn ? 'Delete' : 'Hapus'}</button>
+                        </div>
+                        <button 
+                          onClick={(e) => { e.stopPropagation(); toggleSelect(actualIdx); }}
+                          className={`p-1 rounded-md transition-all ${selectedIndices.has(actualIdx) ? 'text-emerald-600' : 'text-emerald-300 hover:text-emerald-500'}`}
+                        >
+                          {selectedIndices.has(actualIdx) ? <CheckSquare className="h-5 w-5" /> : <Square className="h-5 w-5" />}
+                        </button>
                       </div>
 
                       <div className="cursor-pointer" onClick={() => {
@@ -1089,6 +1254,51 @@ const App: React.FC = () => {
           </a>
         </div>
       </footer>
+
+      <AnimatePresence>
+        {selectedIndices.size > 0 && (
+          <motion.div 
+            initial={{ y: 100, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            exit={{ y: 100, opacity: 0 }}
+            className="fixed bottom-8 left-1/2 -translate-x-1/2 z-40 w-full max-w-lg px-4"
+          >
+            <div className="bg-emerald-900 text-white p-4 rounded-3xl shadow-2xl border border-emerald-700 flex items-center justify-between gap-4">
+              <div className="flex items-center gap-4 pl-2">
+                <div className="w-8 h-8 bg-emerald-700 rounded-full flex items-center justify-center text-xs font-black">
+                  {selectedIndices.size}
+                </div>
+                <span className="text-sm font-bold">
+                  {isEn ? 'Items Selected' : 'Item Terpilih'}
+                </span>
+              </div>
+              
+              <div className="flex items-center gap-2">
+                <button 
+                  onClick={() => setShowBulkCategorize(true)}
+                  className="flex items-center gap-2 px-4 py-2 bg-emerald-800 hover:bg-emerald-700 rounded-xl text-xs font-bold transition-all"
+                >
+                  <Tag className="h-4 w-4" />
+                  {isEn ? 'Categorize' : 'Kategori'}
+                </button>
+                <button 
+                  onClick={bulkDelete}
+                  className="flex items-center gap-2 px-4 py-2 bg-red-600 hover:bg-red-700 rounded-xl text-xs font-bold transition-all"
+                >
+                  <Trash2 className="h-4 w-4" />
+                  {isEn ? 'Delete' : 'Hapus'}
+                </button>
+                <button 
+                  onClick={() => setSelectedIndices(new Set())}
+                  className="p-2 hover:bg-emerald-800 rounded-xl transition-all"
+                >
+                  <RotateCcw className="h-4 w-4" />
+                </button>
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       <LoadingOverlay isVisible={state.isAnalyzing} lang={lang} />
       
