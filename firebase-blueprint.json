@@ -25,7 +25,7 @@
         "arabicText": { "type": "string" },
         "translation": { "type": "string" },
         "translationID": { "type": "string" },
-        "type": { "type": "string", "enum": ["Quran", "Hadith", "Unknown"] },
+        "type": { "type": "string", "enum": ["QURAN", "HADITH", "UNKNOWN"] },
         "confidence": { "type": "number" },
         "timestamp": { "type": "number" },
         "userCategory": { "type": "string" },

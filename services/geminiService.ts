@@ -202,44 +202,64 @@ export const getDailyWisdom = async (date: string, refresh = false): Promise<Ide
     required: ['type', 'title', 'reference', 'arabicText', 'translation', 'translationID', 'transliteration', 'confidence'],
   };
 
-  const systemInstruction = `You are an expert Islamic scholar and mufassir. 
-    Task: Provide a ${refresh ? 'new and different' : 'curated'} "Daily Wisdom" from the Al-Quran or Hadith for the date: ${date}.
-    
-    MANDATORY BILINGUAL REQUIREMENT: 
-    - Provide 'translation' in English.
-    - Provide 'translationID' in Indonesian (Bahasa Indonesia).
-    - Provide 'context' in English (General context/insight).
-    - Provide 'contextID' in Indonesian (Bahasa Indonesia).
-    - Provide 'asbabunNuzul' in English (Occasion of revelation for Quran or Sababul Wurud for Hadith).
-    - Provide 'asbabunNuzulID' in Indonesian (Bahasa Indonesia).
-    - Provide 'tafsirIbnuKatsirID' in Indonesian (Bahasa Indonesia) specifically from the classical Tafsir Ibnu Katsir.
-    
-    Ensure the translations are high-quality and standard. The content should be inspiring and relevant for a daily reflection.`;
+  const themes = ['Compassion', 'Perseverance', 'Gratitude', 'Wisdom', 'Kindness', 'Faith', 'Honesty', 'Humility', 'Moderation', 'Justice', 'Purity', 'Sincerity', 'Service', 'Knowledge'];
+  const dayIndex = new Date(date).getDate(); 
+  
+  const attemptRequest = async (themeToUse: string, isRetry = false): Promise<IdentificationResult> => {
+    const systemInstruction = `You are an expert Islamic scholar and mufassir. 
+      Task: Select a specific verse from the Holy Al-Quran or a Sahih Hadith for daily reflection. 
+      Current Date: ${date}
+      Focus Theme: ${themeToUse}
+      
+      Instructions:
+      1. Use a single short verse or hadith to avoid triggering recitation filters.
+      2. Provide detailed context and insight in both English and Indonesian.
+      3. ${isRetry ? 'Select a less common verse to ensure variety and avoid safety filters.' : 'Ensure high quality reflecton content.'}
+      
+      MANDATORY BILINGUAL REQUIREMENT: 
+      - Provide 'translation' in English.
+      - Provide 'translationID' in Indonesian (Bahasa Indonesia).
+      - Provide 'asbabunNuzul' in English.
+      - Provide 'asbabunNuzulID' in Indonesian.
+      - Provide 'tafsirIbnuKatsirID' in Indonesian.
+      
+      Ensure 'translationID' follows standard Kemenag (Indonesian Ministry of Religious Affairs) formatting.`;
 
-  try {
     const response = await callGeminiWithRetry({
       model,
       contents: {
-        parts: [{ text: `Generate a daily wisdom from Al-Quran or Hadith for the date: ${date}. ${refresh ? 'Make it different from previous ones.' : ''}` }]
+        parts: [{ text: `Provide a specific daily wisdom about ${themeToUse} for the date ${date}. ${refresh ? 'Suggest something unique.' : ''}` }]
       },
       config: {
         systemInstruction,
         responseMimeType: "application/json",
         responseSchema,
-        temperature: 0.7,
+        temperature: 0.8,
       },
     });
 
     const text = response.text.trim();
     if (!text) throw new Error("Empty response text");
+    return JSON.parse(text) as IdentificationResult;
+  };
 
-    const result = JSON.parse(text) as IdentificationResult;
-    return result;
+  try {
+    const initialTheme = themes[dayIndex % themes.length];
+    return await attemptRequest(initialTheme);
   } catch (error: any) {
+    if (error.message.includes("recitation") || error.message.includes("safety")) {
+      console.warn("Retrying daily wisdom with alternative theme due to safety/recitation block...");
+      try {
+        const fallbackTheme = themes[(dayIndex + 3) % themes.length];
+        return await attemptRequest(fallbackTheme, true);
+      } catch (retryError: any) {
+        throw new Error(retryError.message || "Failed to fetch daily wisdom after retry.");
+      }
+    }
     console.error("Gemini Daily Wisdom Error:", error);
-    throw new Error("Failed to fetch daily wisdom.");
+    throw new Error(error.message || "Failed to fetch daily wisdom.");
   }
-};
+}
 
 export const getRelatedContent = async (
   currentResult: IdentificationResult

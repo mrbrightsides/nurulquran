@@ -114,7 +114,7 @@ service cloud.firestore {
     function isValidSavedResult(data) {
       return hasRequiredFields(['userId', 'title', 'reference', 'arabicText', 'type', 'confidence', 'timestamp']) &&
              data.userId == request.auth.uid &&
-             data.type in ['Quran', 'Hadith', 'Unknown'] &&
+             data.type in ['QURAN', 'HADITH', 'UNKNOWN'] &&
              data.confidence >= 0 && data.confidence <= 1 &&
              data.title is string && data.title.size() < 200 &&
              data.arabicText is string && data.arabicText.size() < 5000;
